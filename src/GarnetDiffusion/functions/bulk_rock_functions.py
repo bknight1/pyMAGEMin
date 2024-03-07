@@ -285,7 +285,7 @@ def convert_FeOt_to_FeO_Fe2O3(FeOt_wt_percent, FeO_ratio, Fe2O3_ratio, total_mas
 
 # %%
 ### extract the molar fraction of each element we want to diffuse in the garnet from the end member crystals
-def calculate_molar_fractions(garnet_fractions):
+def calculate_molar_fractions(endmember_fractions):
     """
     Calculate molar fractions of Mg, Ca, Fe, and Mn in a garnet mixture.
 
@@ -312,12 +312,12 @@ def calculate_molar_fractions(garnet_fractions):
 
     # Add contributions from each garnet type
     ### Based on CFMMnASO system
-    molar_amounts['Mg'] += garnet_fractions['py'] * 3  # 3 Mg in Pyrope
-    molar_amounts['Fe'] += garnet_fractions['alm'] * 3  # 3 Fe in Almandine
-    molar_amounts['Ca'] += garnet_fractions['gr'] * 3   # 3 Ca in Grossular
-    molar_amounts['Mn'] += garnet_fractions['spss'] * 3  # 3 Mn in Spessartine
-    molar_amounts['Mg'] += garnet_fractions['kho'] * 3   # 3 Mg in Khoharite 
-    # molar_amounts['Fe'] += garnet_fractions['Kho'] * 2   # TODO - Effects Fe3 on the Y mixing site, can this be ignored ???
+    molar_amounts['Mg'] += endmember_fractions['py'] * 3  # 3 Mg in Pyrope
+    molar_amounts['Fe'] += endmember_fractions['alm'] * 3  # 3 Fe in Almandine
+    molar_amounts['Ca'] += endmember_fractions['gr'] * 3   # 3 Ca in Grossular
+    molar_amounts['Mn'] += endmember_fractions['spss'] * 3  # 3 Mn in Spessartine
+    molar_amounts['Mg'] += endmember_fractions['kho'] * 3   # 3 Mg in Khoharite 
+    # molar_amounts['Fe'] += endmember_fractions['Kho'] * 2   # TODO - Effects Fe3 on the Y mixing site, can this be ignored ???
 
     # Calculate total moles of these elements
     total_moles = sum(molar_amounts.values())
@@ -330,8 +330,20 @@ def calculate_molar_fractions(garnet_fractions):
 
     return molar_fractions
 
+    
+def recalculate_bulk_rock_composition_due_to_fractionation(garnet_fraction, endmember_fractions, initial_composition_oxides):
+    """
+    Recalculates the bulk rock composition in terms of oxides including the effect on Al2O3 due to garnet fractionation.
+    
+    Parameters:
+    - garnet_fraction: Fraction of garnet fractionated from the rock in mole percent
+    - alm, pyr, grss, spss: Proportions of Almandine, Pyrope, Grossular, and Spessartine in the garnet
+    - initial_composition_oxides: Dictionary with the initial mole percentages of SiO2, Al2O3, MgO, FeO, MnO, CaO
+    
+    Returns:
+    - new_composition_oxides: Dictionary with the new mole percentages of SiO2, Al2O3, MgO, FeO, MnO, CaO
 
-    # Define the end-member formulas in terms of moles of oxides
+        # Define the end-member formulas in terms of moles of oxides
     #     Based on TC metapelite description:
     #      E-m    Formula                   Mixing sites
     #                         X                         Y
@@ -341,6 +353,39 @@ def calculate_molar_fractions(garnet_fractions):
     #     spss   Mn3Al2Si3O12   0     0     3     0       2     0
     #     gr     Ca3Al2Si3O12   0     0     0     3       2     0
     #     kho    Mg3Fe2Si3O12   3     0     0     0       0     2
-    
 
+    """
+    
+    # Garnet endmember contributions to oxides
+    garnet_contribution_to_oxides = {
+        'alm': {'FeO': 3, 'Al2O3': 2},
+        'py': {'MgO': 3, 'Al2O3': 2},
+        'gr': {'CaO': 3, 'Al2O3': 2},
+        'spss': {'MnO': 3, 'Al2O3': 2},
+        'kho': {'MgO': 3, 'Al2O3': 0}
+        # 'kho': {'MgO': 3, 'Fe2O3': 0, 'Al2O3': 0}
+    }
+    
+    # Calculate the total contribution of each oxide by garnet
+    total_oxide_contribution = {oxide: 0 for oxide in initial_composition_oxides}
+    for endmember, contribution in garnet_contribution_to_oxides.items():
+        for oxide, moles in contribution.items():
+            fraction = endmember_fractions[endmember]
+            total_oxide_contribution[oxide] += moles * fraction * garnet_fraction
+            
+    # Subtract the garnet contribution from the initial oxide composition
+    new_composition_oxides = initial_composition_oxides.copy()
+    for oxide, contribution in total_oxide_contribution.items():
+        if oxide in new_composition_oxides:
+            new_composition_oxides[oxide] -= contribution
+            # Ensure no negative values
+            new_composition_oxides[oxide] = max(new_composition_oxides[oxide], 0)
+
+    sum_composition_oxides = sum(new_composition_oxides.values())
+
+
+    normalized_composition_oxides = {oxide: (concentration / sum_composition_oxides) * 100 for oxide, concentration in new_composition_oxides.items()}
+
+    
+    return normalized_composition_oxides
 
