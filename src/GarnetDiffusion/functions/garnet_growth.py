@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator, griddata
 
 
-from UWGarnetDiffusion.functions.MAGEMin_functions import *
+from GarnetDiffusion.functions.MAGEMin_functions import *
 
 def grid_perplex_data(T, P, data):
     Tmin = T.min()

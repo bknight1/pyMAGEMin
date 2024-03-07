@@ -5,7 +5,7 @@ import sys
 
 from julia import MAGEMin_C
 
-from UWGarnetDiffusion.functions.bulk_rock_functions import *
+from GarnetDiffusion.functions.bulk_rock_functions import *
 
 
 def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
