@@ -3,9 +3,14 @@ import numpy as np
 import sys
 
 
-from julia import MAGEMin_C
+import juliacall
 
-from GarnetDiffusion.functions.bulk_rock_functions import *
+MAGEMin_C = juliacall.newmodule("MAGEMin")
+MAGEMin_C.seval("using MAGEMin_C")
+
+from juliacall import Main as jl, convert as jlconvert
+
+from .bulk_rock_functions import *
 
 
 def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
@@ -20,7 +25,13 @@ def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
     almandine (alm_arr), spessartine (spss_arr), grossular (gr_arr), and khoharite (kho_arr).
 
     This allows generating a full 2D grid of garnet compositions from MAGEMin.
-    """   
+    """
+
+    ### convert to correct julia datatype
+    ### works even if it's already in a julia type
+    Xoxides = jlconvert(jl.Vector[jl.String], Xoxides)
+    X  = jlconvert(jl.Vector[jl.Float64], X)
+
     out     =   MAGEMin_C.multi_point_minimization(P, T, data, X=X, Xoxides=Xoxides, sys_in=sys_in)
 
     ### flush julia output
@@ -55,15 +66,19 @@ def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
         kho_arr[i]  = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="kho")) 
 
 
+    # ### release the data
+    MAGEMin_C.Finalize_MAGEMin(data)
 
     
     return gt_mol_frac, gt_wt_frac, gt_vol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr
 
 def generate_2D_grid_elements(P, T, data, X, Xoxides, sys_in):
+    
     Mgi = np.zeros_like(P)
     Mni = np.zeros_like(P)
     Fei = np.zeros_like(P)
     Cai = np.zeros_like(P)
+
 
     gt_mol_frac, gt_wt_frac, gt_vol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr = generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in)
 
@@ -98,6 +113,11 @@ def gt_single_point_calc_endmembers(P, T, data, X, Xoxides, sys_in):
     Intended as a utility function for quick garnet endmember calculation without a full grid.
     """
 
+    ### convert to correct julia datatype
+    ### works even if it's already in a julia type
+    Xoxides = jlconvert(jl.Vector[jl.String], Xoxides)
+    X  = jlconvert(jl.Vector[jl.Float64], X)
+
     ### do calculation
     out = MAGEMin_C.single_point_minimization(P, T, data, X=X, Xoxides=Xoxides, sys_in=sys_in)
 
@@ -118,6 +138,9 @@ def gt_single_point_calc_endmembers(P, T, data, X, Xoxides, sys_in):
         gr  = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="gr")
         kho = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="kho")
 
+    # ### release the data
+    MAGEMin_C.Finalize_MAGEMin(data)
+
 
     return gt_frac, gt_wt, gt_vol, py, alm, spss, gr, kho, out
 
@@ -136,6 +159,10 @@ def gt_single_point_calc_elements(P, T, data, X, Xoxides, sys_in):
     Utility function to get garnet element fractions from endmember fractions.
     """
 
+    ### convert to correct julia datatype
+    ### works even if it's already in a julia type
+    Xoxides = jlconvert(jl.Vector[jl.String], Xoxides)
+    X  = jlconvert(jl.Vector[jl.Float64], X)
 
     ### use the previous function to get the EM fractions
     gt_frac, gt_wt, gt_vol, py, alm, spss, gr, kho, out = gt_single_point_calc_endmembers(P, T, data, X=X, Xoxides=Xoxides, sys_in=sys_in)
@@ -156,7 +183,7 @@ def gt_single_point_calc_elements(P, T, data, X, Xoxides, sys_in):
 
 
 
-def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=0):
+def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=False):
     """
     Calculates garnet composition and fractionation along a P-T path.
 
@@ -170,6 +197,10 @@ def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=0):
     change in mole/weight fraction, and element molar fractions along the P-T path.
     """
 
+    ### convert to correct julia datatype
+    ### works even if it's already in a julia type
+    Xoxides = jlconvert(jl.Vector[jl.String], Xoxides)
+    X  = jlconvert(jl.Vector[jl.Float64], X)
 
 
     gt_wt_frac    = np.zeros(len(P))
@@ -260,7 +291,7 @@ def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=0):
             
 
     # ### release the data
-    # MAGEMin_C.Finalize_MAGEMin(data)
+    MAGEMin_C.Finalize_MAGEMin(data)
 
 
 

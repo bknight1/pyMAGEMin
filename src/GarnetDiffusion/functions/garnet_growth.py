@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator, griddata
 
 
-from GarnetDiffusion.functions.MAGEMin_functions import *
+# from .MAGEMin_functions import *
 
 def grid_perplex_data(T, P, data):
     Tmin = T.min()
@@ -516,7 +516,7 @@ def generate_garnet_from_MAGEMin(Pi,
         tuple: Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car
     """
         
-    
+    from .MAGEMin_functions import garnet_over_path
 
     # gt_mol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr = garnet_over_path(Pi, Ti, data, X, Xoxides, sys_in, fractionate=0)
 

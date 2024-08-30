@@ -1,4 +1,6 @@
 # ### Import all functions from each file
-# import bulk_rock_functions#  import *
-# import garnet_growth #import *
-# import MAGEMin_functions #  import *
+
+# Import all necessary submodules or specific items
+from . import bulk_rock_functions
+from . import garnet_growth
+from . import MAGEMin_functions

@@ -31,17 +31,17 @@ setup(
     version='0.0.1',  # Consider using semantic versioning
     author='Ben Knight',
     author_email='ben.knight@curtin.edu.au',
-    description='A collection of functions to generate garnets using MAGEMin and diffuse along a PT path using Underworld(3)',
+    description='A collection of functions to generate garnets using MAGEMin',
     # long_description=open('README.md').read(),
     # long_description_content_type='text/markdown',  # If your README is Markdown
     # url='https://github.com/bknight1/GarnetDiffusion',  # Optional
-    packages=['GarnetDiffusion'],  # Automatically find and include all packages
+    packages=find_packages(where='src'),  # Automatically find and include all packages
     package_dir={'':'src'},  # Tell distutils packages are under src
     install_requires=[
         'pandas>=1.0.0',  
         'numpy>=1.18.0',
         'scipy>=1.4.0',
-        'julia>=0.5.6',  
+        'juliacall>=0.9',  
     ],
     cmdclass={
         'install': CustomInstall,
@@ -51,16 +51,14 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Academic Free License (AFL)',  # Change as appropriate
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Scientific/Engineering',
         'Natural Language :: English',
 
         
     ],
-    python_requires='>=3.7',  # Specify compatible Python versions
+    python_requires='>=3.10',  # Specify compatible Python versions
 )
