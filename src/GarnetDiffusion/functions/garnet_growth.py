@@ -516,11 +516,11 @@ def generate_garnet_from_MAGEMin(Pi,
         tuple: Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car
     """
         
-    from .MAGEMin_functions import garnet_over_path
+    from .MAGEMin_functions import gt_over_path
 
     # gt_mol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr = garnet_over_path(Pi, Ti, data, X, Xoxides, sys_in, fractionate=0)
 
-    gt_mol_frac, gt_wt_frac, gt_vol_frac, d_gt_mol_frac, d_gt_wt_frac, Mgi, Mni, Fei, Cai = garnet_over_path(Pi, Ti, data, X, Xoxides, sys_in, fractionate=fractionate)
+    gt_mol_frac, gt_wt_frac, gt_vol_frac, d_gt_mol_frac, d_gt_wt_frac, Mgi, Mni, Fei, Cai = gt_over_path(Pi, Ti, data, X, Xoxides, sys_in, fractionate=fractionate)
 
      # # The first GVi must be 0, we will call it reduction (we neglect the previous history - we recommend starting from a zero field of garnet)
     ### This is now done in the fractionation path

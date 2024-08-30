@@ -13,7 +13,7 @@ from juliacall import Main as jl, convert as jlconvert
 from .bulk_rock_functions import *
 
 
-def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
+def generate_2D_grid_gt_endmembers(P, T, data, X, Xoxides, sys_in):
     """
     generate_2D_grid_endmembers generates a 2D grid of garnet endmember mole fractions by calling MAGEMin.
 
@@ -36,7 +36,6 @@ def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
 
     ### flush julia output
     sys.stdout.flush()
-    sys.stderr.flush()
 
     gt_mol_frac    = np.zeros_like(P)
     gt_wt_frac    = np.zeros_like(P)
@@ -66,13 +65,13 @@ def generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in):
         kho_arr[i]  = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="kho")) 
 
 
-    # ### release the data
-    MAGEMin_C.Finalize_MAGEMin(data)
+    # ### release the data, is causing crashes ??
+    # MAGEMin_C.Finalize_MAGEMin(data)
 
     
     return gt_mol_frac, gt_wt_frac, gt_vol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr
 
-def generate_2D_grid_elements(P, T, data, X, Xoxides, sys_in):
+def generate_2D_grid_gt_elements(P, T, data, X, Xoxides, sys_in):
     
     Mgi = np.zeros_like(P)
     Mni = np.zeros_like(P)
@@ -123,7 +122,6 @@ def gt_single_point_calc_endmembers(P, T, data, X, Xoxides, sys_in):
 
     ### flush julia output
     sys.stdout.flush()
-    sys.stderr.flush()
 
     gt_frac = gt_wt = gt_vol = py = alm = spss = gr = kho = 0.
 
@@ -138,8 +136,9 @@ def gt_single_point_calc_endmembers(P, T, data, X, Xoxides, sys_in):
         gr  = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="gr")
         kho = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="kho")
 
-    # ### release the data
-    MAGEMin_C.Finalize_MAGEMin(data)
+
+    # ### release the data, is causing crashes ??
+    # MAGEMin_C.Finalize_MAGEMin(data)
 
 
     return gt_frac, gt_wt, gt_vol, py, alm, spss, gr, kho, out
@@ -183,7 +182,7 @@ def gt_single_point_calc_elements(P, T, data, X, Xoxides, sys_in):
 
 
 
-def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=False):
+def gt_over_path(P, T, data, X, Xoxides, sys_in, fractionate=False):
     """
     Calculates garnet composition and fractionation along a P-T path.
 
@@ -279,9 +278,9 @@ def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=False):
 
                 Xoxides =  out.oxides
                 if sys_in == "wt":
-                    X = out.bulk_wt - (out.bulk_wt * out.SS_vec[garnet_ind].Comp_wt * d_gt_wt_frac[i])
+                    X = out.bulk_wt - (np.array(out.bulk_wt) * np.array(out.SS_vec[garnet_ind].Comp_wt) * np.array(d_gt_wt_frac[i]))
                 elif sys_in == "mol":
-                    X = out.bulk - (out.bulk * out.SS_vec[garnet_ind].Comp * d_gt_mol_frac[i])
+                    X = out.bulk - (np.array(out.bulk) * np.array(out.SS_vec[garnet_ind].Comp) * np.array(d_gt_mol_frac[i]))
                 # else:
                 #     print("sys_in must be either 'wt' or 'mol")
 
@@ -290,8 +289,9 @@ def garnet_over_path(P, T, data, X, Xoxides, sys_in, fractionate=False):
 
             
 
-    # ### release the data
-    MAGEMin_C.Finalize_MAGEMin(data)
+
+    # ### release the data, is causing crashes ??
+    # MAGEMin_C.Finalize_MAGEMin(data)
 
 
 
