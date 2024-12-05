@@ -132,7 +132,7 @@ def generate_garnet_distribution(n_classes, r_min, dr, fnr, Gn, tGn):
     return G, t, r, R
 
 
-def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, garnet_r, nR_diff, plot_figs):
+def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, r_min, r_max, nR_diff, plot_figs):
     """Generates garnet distributions.
 
     Given arrays of garnet volume increments, compositions, times, temperature,
@@ -184,7 +184,9 @@ def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet
     final_growth_point = np.where(GVG == 1)[0][0]
 
     ### Find where the garnet is growing (GVG between 0 and 1)
-    ind = np.arange(first_growth_point, final_growth_point+1, 1)
+    # ind = np.arange(first_growth_point, final_growth_point+1, 1)
+
+    ind = np.where( (GVG > 0.) & (GVG < 1) )
 
 
 
@@ -206,30 +208,35 @@ def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet
     size_dist = 'N'  # type of garnet size distribution
     n_classes = garnet_classes  # number of garnet classes
 
-    ### radius classes
-    if garnet_no == 1:
-        r_min = 0.01*garnet_r
-        r_max = garnet_r
-    elif garnet_no == garnet_classes:
-        r_min = garnet_r
-        r_max = 100*garnet_r
-    else:
-        index = garnet_classes - garnet_no
-        # We want the xth value to be the garnet radius, and r_min to be at least 0.01
-        r_min = 0.01
-        # Calculate the step size based on the position of garnet radius and r_min
-        # The step is the difference between the garnet radius (garnet_r) and r_min, divided by the index of the target value
-        step = (garnet_r - r_min) / (index + 1)
+    # ### radius classes
+    # if garnet_no == 1:
+    #     r_min = 0.01*garnet_r
+    #     r_max = garnet_r
+    # elif garnet_no == garnet_classes:
+    #     r_min = garnet_r
+    #     r_max = 100*garnet_r
+    # else:
+    #     index = garnet_classes - garnet_no
+    #     # We want the xth value to be the garnet radius, and r_min to be at least 0.01
+    #     r_min = 1.
+    #     # Calculate the step size based on the position of garnet radius and r_min
+    #     # The step is the difference between the garnet radius (garnet_r) and r_min, divided by the index of the target value
+    #     step = (garnet_r - r_min) / (index + 1)
 
-        # Calculate r_max based on the step size
-        # r_max is the target value (0.5) plus the step size times the number of steps remaining after the target value
-        r_max = garnet_r + step * (n_classes - index)
+    #     # Calculate r_max based on the step size
+    #     # r_max is the target value (0.5) plus the step size times the number of steps remaining after the target value
+    #     r_max = garnet_r + step * (n_classes - index)
 
-    r=np.linspace(r_min,r_max,n_classes)
+    # r=np.linspace(r_min,r_max,n_classes)
 
+    # Generate radius classes
+    r = np.linspace(r_min, r_max, n_classes)
+    dr = r[1] - r[0]  # spacing between consecutive radii
+    nr = n_classes  # equivalent to len(r)
 
-    dr = r[1] - r[0]
-    nr = n_classes
+    # No rescaling: garnet size corresponds to its order
+    r_resc = r[n_classes - garnet_no]
+
 
     if size_dist == 'N':  # normal distribution (cut off)
         mi = (r_min + r_max) / 2
@@ -267,6 +274,9 @@ def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet
     ind = np.arange(garnet_no_python, nr)  
 
     Rr1 = R[garnet_no_python, ind]
+
+    Rr1  =( Rr1/Rr1.max() ) *r_resc
+
 
     # Extract data corresponding to the growth of the selected garnet (garnet_no)
     tr1 = np.array(t)[ind] 
@@ -398,7 +408,8 @@ def generate_garnet_from_perpleX(Pi,
                                  Ti,
                                  ti, 
                                  data_loc,
-                                 garnet_r=0, 
+                                 r_min=10,
+                                 r_max=100, 
                                  garnet_classes=99,
                                  nR_diff=99,
                                  garnet_no=50,
@@ -475,7 +486,9 @@ def generate_garnet_from_perpleX(Pi,
     # The first GVi must be 0, we will call it reduction (we neglect the previous history - we recommend starting from a zero field of garnet)
     GVi = GVi - GVi[0]  # reduction (previous history neglected)
 
-    Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(GVi,  Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, garnet_r, nR_diff, plot_figs)
+    Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(GVi,  Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, r_min, r_max, nR_diff, plot_figs)
+
+
 
 
 
@@ -489,7 +502,8 @@ def generate_garnet_from_MAGEMin(Pi,
                                  X,
                                  Xoxides,
                                  sys_in,
-                                 garnet_r=0, 
+                                 r_min=10,
+                                 r_max=100, 
                                  garnet_classes=99,
                                  nR_diff=99,
                                  garnet_no=50,
@@ -527,6 +541,6 @@ def generate_garnet_from_MAGEMin(Pi,
 
 
     # Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(GVi,  py_arr, spss_arr, alm_arr, gr_arr, ti, Ti, Pi, garnet_classes, garnet_no, garnet_r, nR_diff, plot_figs)
-    Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(gt_vol_frac,  Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, garnet_r, nR_diff, plot_figs)
+    Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(gt_vol_frac,  Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, r_min, r_max, nR_diff, plot_figs)
 
     return Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car 
