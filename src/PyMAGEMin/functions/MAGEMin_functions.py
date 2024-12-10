@@ -52,17 +52,17 @@ def generate_2D_grid_gt_endmembers(P, T, data, X, Xoxides, sys_in):
 
     for i in range(len(T)):
         ### get garnet data
-        gt_mol_frac[i] = ( extract_phase_mol_frac(phase="g", MAGEMinOutput=out[i]) )
-        gt_wt_frac[i]  = ( extract_phase_wt_frac(phase="g", MAGEMinOutput=out[i])  )
-        gt_vol_frac[i] = ( extract_phase_vol_frac(phase="g", MAGEMinOutput=out[i]) )
+        gt_mol_frac[i] = ( phase_frac(phase="g", MAGEMinOutput=out[i], sys_in='mol') )
+        gt_wt_frac[i]  = ( phase_frac(phase="g", MAGEMinOutput=out[i], sys_in='wt' ) )
+        gt_vol_frac[i] = ( phase_frac(phase="g", MAGEMinOutput=out[i], sys_in='vol') )
         
 
         ### get end member data of the garnet
-        py_arr[i]   = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="py"))  
-        alm_arr[i]  = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="alm")) 
-        spss_arr[i] = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="spss")) 
-        gr_arr[i]   = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="gr")) 
-        kho_arr[i]  = (extract_end_member_mol_frac(phase="g", MAGEMinOutput=out[i], end_member="kho")) 
+        py_arr[i]   = (extract_end_member(phase="g", MAGEMinOutput=out[i], end_member="py", sys_in=sys_in))  
+        alm_arr[i]  = (extract_end_member(phase="g", MAGEMinOutput=out[i], end_member="alm", sys_in=sys_in)) 
+        spss_arr[i] = (extract_end_member(phase="g", MAGEMinOutput=out[i], end_member="spss", sys_in=sys_in)) 
+        gr_arr[i]   = (extract_end_member(phase="g", MAGEMinOutput=out[i], end_member="gr", sys_in=sys_in)) 
+        kho_arr[i]  = (extract_end_member(phase="g", MAGEMinOutput=out[i], end_member="kho", sys_in=sys_in)) 
 
 
     # ### release the data, is causing crashes ??
@@ -79,7 +79,7 @@ def generate_2D_grid_gt_elements(P, T, data, X, Xoxides, sys_in):
     Cai = np.zeros_like(P)
 
 
-    gt_mol_frac, gt_wt_frac, gt_vol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr = generate_2D_grid_endmembers(P, T, data, X, Xoxides, sys_in)
+    gt_mol_frac, gt_wt_frac, gt_vol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr = generate_2D_grid_gt_endmembers(P, T, data, X, Xoxides, sys_in)
 
     for i in range(len(py_arr)):
         garnet_fractions = {"py": py_arr[i], "alm": alm_arr[i], "gr": gr_arr[i], "spss": spss_arr[i], "kho": kho_arr[i]}
@@ -126,15 +126,15 @@ def gt_single_point_calc_endmembers(P, T, data, X, Xoxides, sys_in):
     gt_frac = gt_wt = gt_vol = py = alm = spss = gr = kho = 0.
 
     if 'g' in out.ph:
-        gt_frac  = extract_phase_mol_frac(phase="g", MAGEMinOutput=out)
-        gt_wt   = extract_phase_wt_frac(phase="g", MAGEMinOutput=out)
-        gt_vol  = extract_phase_vol_frac(phase="g", MAGEMinOutput=out)
+        gt_frac  = phase_frac(phase="g", MAGEMinOutput=out, sys_in='mol')
+        gt_wt    = phase_frac(phase="g", MAGEMinOutput=out, sys_in='wt')
+        gt_vol   = phase_frac(phase="g", MAGEMinOutput=out, sys_in='vol')
 
-        py  = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="py")
-        alm = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="alm")
-        spss= extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="spss")
-        gr  = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="gr")
-        kho = extract_end_member_mol_frac(phase="g", MAGEMinOutput=out, end_member="kho")
+        py  = extract_end_member(phase="g", MAGEMinOutput=out, end_member="py", sys_in=sys_in)
+        alm = extract_end_member(phase="g", MAGEMinOutput=out, end_member="alm", sys_in=sys_in)
+        spss= extract_end_member(phase="g", MAGEMinOutput=out, end_member="spss", sys_in=sys_in)
+        gr  = extract_end_member(phase="g", MAGEMinOutput=out, end_member="gr", sys_in=sys_in)
+        kho = extract_end_member(phase="g", MAGEMinOutput=out, end_member="kho", sys_in=sys_in)
 
 
     # ### release the data, is causing crashes ??
@@ -298,13 +298,14 @@ def gt_over_path(P, T, data, X, Xoxides, sys_in, fractionate=False):
     return gt_mol_frac, gt_wt_frac, gt_vol_frac, d_gt_mol_frac, d_gt_wt_frac, Mgi, Mni, Fei, Cai, 
 
 
-def extract_end_member_mol_frac(phase, MAGEMinOutput, end_member):
+def extract_end_member(phase, MAGEMinOutput, end_member, sys_in):
     """
     Extracts end member data from MAGEMinOutput based on phase and end member.
     Args:
         phase (str): The phase to extract data for.
         MAGEMinOutput (MAGEMinOutput): The MAGEMinOutput object containing the data.
         endMember (str): The end member to extract data for.
+        sys_in (str): if system is in 'wt' or 'mol'
     Returns:
         float: The molar fraction of the specified end member for the given phase. If the specified
         phase or end member is not found, returns 0.0.
@@ -312,134 +313,144 @@ def extract_end_member_mol_frac(phase, MAGEMinOutput, end_member):
     try:
         phase_ind = MAGEMinOutput.ph.index(phase)
         em_index = MAGEMinOutput.SS_vec[phase_ind].emNames.index(end_member)
-        data = MAGEMinOutput.SS_vec[phase_ind].emFrac[em_index]
-    except:
-        data = 0.
-    return data
-
-def extract_end_member_wt_frac(MAGEMinOutput, phase, end_member):
-    """
-    Extracts the weight fraction of a specified end member for a given phase from the input MAGEMinOutput.
-
-    Args:
-        MAGEMinOutput: The input MAGEMinOutput object.
-        phase: The phase for which the end member weight fraction is to be extracted.
-        end_member: The end member for which the weight fraction is to be extracted.
-
-    Returns:
-        The weight fraction of the specified end member for the given phase. If the specified
-        phase or end member is not found, returns 0.0.
-    """
-
-    try:
-        phase_ind = MAGEMinOutput.ph.index(phase)
-        em_index = MAGEMinOutput.SS_vec[phase_ind].emNames.index(end_member)
-        data = MAGEMinOutput.SS_vec[phase_ind].emFrac_wt[em_index]
+        if sys_in.casefold() == 'wt':
+            data = MAGEMinOutput.SS_vec[phase_ind].emFrac_wt[em_index]
+        else:
+            data = MAGEMinOutput.SS_vec[phase_ind].emFrac[em_index]
+        
     except:
         data = 0.
     return data
 
 
-def extract_phase_mol_frac(phase, MAGEMinOutput):
+def phase_frac(phase, MAGEMinOutput, sys_in):
     """
-    Extracts the phase mol from the MAGEMinOutput.
+    Extracts the phase frac from the MAGEMinOutput.
 
     Args:
         phase: The phase to extract.
         MAGEMinOutput: The MAGEMinOutput object containing phase information.
+        sys_in (str): if system is in 'wt' or 'mol'
 
     Returns:
         The extracted phase molar fraction, or 0. if not found.
     """
     try:
         phase_ind = MAGEMinOutput.ph.index(phase)
-        data = (MAGEMinOutput.ph_frac[phase_ind])
+        if sys_in.casefold() == 'wt':
+            data = (MAGEMinOutput.ph_frac_wt[phase_ind])
+        elif sys_in.casefold() == 'vol':
+            ph_names = MAGEMinOutput.ph
+            n_ph = len(ph_names)
+            V = np.zeros((n_ph, 1))
+
+            for i, ph in enumerate(ph_names):
+                id = [j for j, p in enumerate(MAGEMinOutput.ph) if p == ph]
+                if id:
+                    rho = sum(MAGEMinOutput.SS_vec[j].rho if j < MAGEMinOutput.n_SS else MAGEMinOutput.PP_vec[j - MAGEMinOutput.n_SS].rho for j in id) / len(id)
+                    V[i, 0] = sum(MAGEMinOutput.ph_frac_wt[j] for j in id) / rho
+
+            V /= np.sum(V)
+
+            data = V[phase_ind]
+        else:
+            data = (MAGEMinOutput.ph_frac[phase_ind])
     except:
         data = 0.
     return data
 
-def extract_phase_wt_frac(phase, MAGEMinOutput):
+
+
+def find_solidus(P, initial_T, data, precision=1., verbose=False):
     """
-    Function to extract phase weight from MAGEMinOutput.
+    Finds the solidus temperature where the liquid fraction becomes zero.
     
     Parameters:
-    - phase: the phase to extract weight for
-    - MAGEMinOutput: the MAGEMinOutput object
-    
-    Returns:
-    - data: the weight fraction of the specified phase, or 0. if not found
-    """
-    try:
-        phase_ind = MAGEMinOutput.ph.index(phase)
-        data = (MAGEMinOutput.ph_frac_wt[phase_ind])
-    except:
-        data = 0.
-    return data
+        P (float): Pressure in kbar.
+        initial_T (float): Initial temperature guess in Celsius.
+        data: MAGEMin data object.
+        precision: accuracy of solution to given number of decimal places.
 
-def extract_phase_vol_frac(phase, MAGEMinOutput):
+    Returns:
+        float: Solidus temperature in Celsius.
     """
-    Function to extract phase weight from MAGEMinOutput.
+    solidus_T = float( initial_T )
+    out = MAGEMin_C.single_point_minimization(P, solidus_T, data)
+    liq_frac = phase_frac(phase="liq", MAGEMinOutput=out, sys_in='mol')
+
+    if liq_frac == 0:
+        ValueError(f'Try increasing initial temperature guess as liquid fraction = {liq_frac}')
+    else:
+        while liq_frac > 0:
+            solidus_T -= precision
+            out = MAGEMin_C.single_point_minimization(P, solidus_T, data)
+            liq_frac = phase_frac(phase="liq", MAGEMinOutput=out, sys_in='mol')
+            if verbose:
+                print(f"liq_frac: {liq_frac:.4f}, solidus_T: {solidus_T:.2f}")
+    
+    return solidus_T
+
+def find_liquidus(P, initial_T, data, precision=1., verbose=False ):
+    """
+    Finds the liquidus temperature where the liquid fraction becomes one.
     
     Parameters:
-    - phase: the phase to extract weight for
-    - MAGEMinOutput: the MAGEMinOutput object
-    
+        P (float): Pressure in kbar.
+        initial_T (float): Initial temperature guess in Celsius.
+        data: MAGEMin data object.
+        precision: accuracy of solution to given number of decimal places.
+
     Returns:
-    - data: the volume % of the specified phase, or 0. if not found
+        float: Liquidus temperature in Celsius.
     """
-    ph_names = MAGEMinOutput.ph
-    n_ph = len(ph_names)
-    V = np.zeros((n_ph, 1))
+    liquidus_T = float( initial_T )
+    out = MAGEMin_C.single_point_minimization(P, liquidus_T, data)
+    liq_frac = phase_frac(phase="liq", MAGEMinOutput=out, sys_in='mol')
 
-    for i, ph in enumerate(ph_names):
-        id = [j for j, p in enumerate(MAGEMinOutput.ph) if p == ph]
-        if id:
-            rho = sum(MAGEMinOutput.SS_vec[j].rho if j < MAGEMinOutput.n_SS else MAGEMinOutput.PP_vec[j - MAGEMinOutput.n_SS].rho for j in id) / len(id)
-            V[i, 0] = sum(MAGEMinOutput.ph_frac_wt[j] for j in id) / rho
-
-    V /= np.sum(V)
-            
-
-    try:
-        phase_ind = MAGEMinOutput.ph.index(phase)
-        data = V[phase_ind]
-    except:
-        data = 0.
-
-    return data
-
-def get_phase_comp_mol(phase, MAGEMinOutput):
-    """
-    Function to extract phase comp in mol % from MAGEMin.
+    if liq_frac == 1:
+        ValueError(f'Try decreasing initial temperature guess as liquid fraction = {liq_frac}')
+    else:
+        while liq_frac < 1:
+            liquidus_T += precision
+            out = MAGEMin_C.single_point_minimization(P, liquidus_T, data)
+            liq_frac = phase_frac(phase="liq", MAGEMinOutput=out, sys_in='mol')
+            if verbose:
+                print(f"liq_frac: {liq_frac:.4f}, liquidus_T: {liquidus_T:.2f}")
     
-    Parameters:
-    - phase: the phase to extract mol frac for
-    - MAGEMinOutput: the MAGEMinOutput object
-    
-    Returns:
-    - data: the composition of the phase in mol frac, or 0. if not found
-    """
-    try:
-        phase_ind = MAGEMinOutput.ph.index(phase)
-        data = (MAGEMinOutput.SS_vec[phase_ind].Comp)
-    except:
-        data = 0.
-    return data
+    return liquidus_T
 
-def get_phase_comp_wt(phase, MAGEMinOutput):
-    """
-    Function to extract phase comp in wt % from MAGEMin.
+# def get_phase_comp_mol(phase, MAGEMinOutput):
+#     """
+#     Function to extract phase comp in mol % from MAGEMin.
     
-    Parameters:
-    - phase: the phase to extract weight % for
-    - MAGEMinOutput: the MAGEMinOutput object
+#     Parameters:
+#      phase: the phase to extract mol frac for
+#      MAGEMinOutput: the MAGEMinOutput object
     
-    Returns:
-    - data: the composition of the phase in wt %, or 0. if not found
-    """
-    try:
-        phase_ind = MAGEMinOutput.ph.index(phase)
-        data = (MAGEMinOutput.SS_vec[phase_ind].Comp)
-    except:
-        data = 0.
-    return data
+#     Returns:
+#     - data: the composition of the phase in mol frac, or 0. if not found
+#     """
+#     try:
+#         phase_ind = MAGEMinOutput.ph.index(phase)
+#         data = (MAGEMinOutput.SS_vec[phase_ind].Comp)
+#     except:
+#         data = 0.
+#     return data
+
+# def get_phase_comp_wt(phase, MAGEMinOutput):
+#     """
+#     Function to extract phase comp in wt % from MAGEMin.
+    
+#     Parameters:
+#      phase: the phase to extract weight % for
+#      MAGEMinOutput: the MAGEMinOutput object
+    
+#     Returns:
+#     - data: the composition of the phase in wt %, or 0. if not found
+#     """
+#     try:
+#         phase_ind = MAGEMinOutput.ph.index(phase)
+#         data = (MAGEMinOutput.SS_vec[phase_ind].Comp)
+#     except:
+#         data = 0.
+#     return data

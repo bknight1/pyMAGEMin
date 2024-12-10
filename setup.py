@@ -26,11 +26,11 @@ class CustomInstall(install):
         install.run(self)
 
 setup(
-    name='GarnetDiffusion',
+    name='PyMAGEMin',
     version='0.0.1',
     author='Ben Knight',
     author_email='ben.knight@curtin.edu.au',
-    description='A collection of functions to generate garnets using MAGEMin',
+    description='A python package to perform MAGEMin calculations in python',
     # long_description=open('README.md').read(),
     # long_description_content_type='text/markdown',
     # url='https://github.com/bknight1/GarnetDiffusion',
