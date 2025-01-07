@@ -186,9 +186,7 @@ def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet
     ### Find where the garnet is growing (GVG between 0 and 1)
     # ind = np.arange(first_growth_point, final_growth_point+1, 1)
 
-    ind = np.where( (GVG > 0.) & (GVG < 1) )
-
-
+    ind = np.where( (GVG > 0.) & (GVG < 1) )[0]
 
     if len(GVG) <= 3:
         raise ValueError("GVG is too short")

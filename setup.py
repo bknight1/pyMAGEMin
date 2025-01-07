@@ -26,7 +26,7 @@ class CustomInstall(install):
         install.run(self)
 
 setup(
-    name='PyMAGEMin',
+    name='pyMAGEMin',
     version='0.0.1',
     author='Ben Knight',
     author_email='ben.knight@curtin.edu.au',
