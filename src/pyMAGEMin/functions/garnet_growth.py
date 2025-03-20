@@ -3,324 +3,332 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator, griddata
 
-
-# from .MAGEMin_functions import *
-
-def grid_perplex_data(T, P, data):
-    Tmin = T.min()
-    Tmax = T.max()
-    Tn   = len(np.unique(T))
-    Tg   = np.linspace(Tmin, Tmax, Tn)
-    
-    Pmin = P.min()
-    Pmax = P.max()
-    Pn   = len(np.unique(P))
-    Pg   = np.linspace(Pmin, Pmax, Pn)
-
-
-    np.nan_to_num(data, copy=False)
-
-    T_grid, P_grid = np.meshgrid(Tg, Pg)
-
-
-    data_grid = np.reshape(data, [Tn, Pn])
-
-    return data_grid, T_grid, P_grid
-
-    
-def create_PTt_path(P, T, t, nsteps):
+def generate_distribution(n_classes, r_min, dr, fnr, Gn, tGn):
     """
-    Create a PTt path array by interpolating the given PTt data.
+    Generates a distribution of radial sizes and associated garnet volumes and formation times.
+    
     Parameters:
-        PTt_data (ndarray): An array containing PTt data with shape (n, 3), where n is the number of data points. Each row should contain pressure, temperature, and time values.
-        n_pts (int): The number of points to be generated in the PTt path. Defaults to 101.
+        n_classes (int): Number of classes.
+        r_min (float): Minimum mineral/crystal radius.
+        dr (float): Increment by which radii are increased.
+        fnr (array-like): Array of normalized fractions for new volume added per class.
+        Gn (array-like): Total volume at discrete time steps.
+        tGn (array-like): Formation times corresponding to volumes in Gn.
+    
     Returns:
-        ndarray: A 2D array representing the PTt path. Each row contains the interpolated pressure, temperature, and time values at a specific point along the path.
+        cumulative_volumes (np.array): Cumulative mineral volume for each class.
+        formation_times (np.array): Formation time for each class.
+        radii (np.array): Final radius values for each class.
+        radius_matrix (2D np.array): Matrix of radius values between classes.
     """
-    Pi     = P
-    Ti     = T
-    tw     = t
+    # Calculate the initial volume for a garnet of minimum radius.
+    initial_volume = 4/3 * np.pi * r_min**3
 
-
-    n_rows = len(Pi)
-    n_rows
-
-    ### get the number of points to interp the PTt path along
-    d = n_rows/(nsteps-1)
-    s = np.arange(0,(n_rows-1)+d, d)
-
+    # Initialize arrays for cumulative volumes, formation times, and radii.
+    cumulative_volumes = np.zeros(n_classes)
+    formation_times = np.zeros(n_classes)
+    # Every new class starts with r_min.
+    radii = np.full(n_classes, r_min, dtype=float)
+    # Create an empty matrix for radii between classes.
+    radius_matrix = np.full((n_classes, n_classes), np.nan)
     
-    ### create the interp
-    temp_interp = PchipInterpolator(np.arange(0,n_rows), Ti)
-    pressure_interp = PchipInterpolator(np.arange(0,n_rows), Pi)
-    time_interp = PchipInterpolator(np.arange(0,n_rows), tw)
-    ### do the interp
-    P_interp = pressure_interp(s)
-    T_interp = temp_interp(s)
-    t_interp = time_interp(s)
-
-
-    ### Cannot contain identical PT points
-    epsP=.1 
-    epsT=.01
-    
-    dPi = P_interp[1:]-P_interp[:-1]
-    dTi = T_interp[1:]-T_interp[:-1]
-    
-    #### checks for identical points and adds a small amount to the pressure and temperature
-    P_interp[1:][(dPi < epsP) & (dTi < epsT)] = P_interp[1:][(dPi < epsP) & (dTi < epsT)]+2*epsP
-    T_interp[1:][(dPi < epsP) & (dTi < epsT)] = T_interp[1:][(dPi < epsP) & (dTi < epsT)]+2*epsT
-
-    # Create PTt path array
-    PTt_path = np.zeros(shape=(len(P_interp), nsteps))
-    PTt_path[:, 0] = P_interp
-    PTt_path[:, 1] = T_interp
-    PTt_path[:, 2] = t_interp
-
-    return PTt_path
-    
-
-def generate_garnet_distribution(n_classes, r_min, dr, fnr, Gn, tGn):
-    """Generates a garnet distribution.
-
-    Given the number of garnet classes, minimum radius, radius increment, 
-    fraction of new garnet in each class, total garnet volume, and garnet
-    formation times, this function calculates the total garnet volume 
-    in each class, garnet formation time for each class, radius of each 
-    class, and radius matrix between classes.
-
-    Parameters:
-        n_classes (int): Number of garnet classes.
-        r_min (float): Minimum garnet radius. 
-        dr (float): Radius increment between classes.
-        fnr (array): Fraction of new garnet volume for each class.
-        Gn (array): Total garnet volume at each time step. 
-        tGn (array): Garnet formation time at each time step.
-
-    Returns:
-        G (array): Total garnet volume in each class.
-        t (array): Garnet formation time for each class.
-        r (array): Radius of each class.
-        R (2D array): Radius matrix between classes.
-    """
-   
-    v0 = 4/3 * np.pi * r_min**3
-    G = np.zeros(n_classes)
-    t = np.zeros(n_classes)
-    r = np.full(n_classes, r_min, dtype=float)
-    R = np.zeros((n_classes, n_classes))*np.nan
-
+    # Loop over each garnet class.
     for i in range(n_classes):
         if i == 0:
-            G[i] = v0 * fnr[i]
+            # For the first class, scale the initial volume using the fraction.
+            current_volume = initial_volume * fnr[i]
+            cumulative_volumes[i] = current_volume
+            # Save the volume increment for reference.
+            vol_increment = initial_volume
         else:
-            v = 4/3 * np.pi * ((r[:i] + dr)**3 - r[:i]**3)
-            V = v0 * fnr[i] + np.sum(v * fnr[:i])
-            G[i] = G[i-1] + V
-            r[:i] += dr
-            r[i] = r_min
-            R[:i, i] = r[:i]
-            R[i, i] = r[i]
-
-        ind1 = np.where(Gn <= G[i])[0]
-        ind2 = np.where(Gn >= G[i])[0]
-        i1 = ind1[-1] if ind1.size > 0 else ind2[0]
-        i2 = ind2[0] if ind2.size > 0 else ind1[-1]
-
-        t[i] = tGn[i2] if i1 == i2 else np.interp(G[i], [Gn[i1], Gn[i2]], [tGn[i1], tGn[i2]])
-
-    return G, t, r, R
-
-
-def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, r_min, r_max, nR_diff, plot_figs):
-    """Generates garnet distributions.
-
-    Given arrays of garnet volume increments, compositions, times, temperature,
-    pressure, and number of garnet classes, this function generates garnet objects 
-    with radii and compositions.
-
-    Parameters:
-        GVi (array): Garnet volume increment array.
-        Mgi (array): Mg composition array.
-        etc.
-
-    Returns:
-        garnets (list): List of Garnet objects.
-    """
-
-    if garnet_no < 1 or garnet_no > garnet_classes:
-        raise ValueError(f"garnet_no must be between 1 and {garnet_classes} [garnet_classes]")
-
-
-    garnet_no_python = garnet_no - 1 ### convert to python indexing, so 1st garnet is actually 0 index
-
-
-    nPT = len(GVi)
-
-        # find the indices where the garnet is growing, used to make the garnet grow from the first growth point
-    GVG = [GVi[0]]  
-
-    for i in range(1, nPT):
-        if GVi[i] <= max(GVG):
-            GVG.append(max(GVG))
-        else:
-            GVG.append(GVi[i])
-
-
-    ### Normalise values to max volume of garnet
-    GVG = np.array(GVG) / max(GVG) #### normalise to 1
+            # For subsequent classes, compute the volume increment for each existing class.
+            # This computes the change in volume when the radius increases by dr.
+            volume_increments = 4/3 * np.pi * ((radii[:i] + dr)**3 - (radii[:i])**3)
             
-    # checking that the garnet is growing each step
-    difGVG = np.diff(GVG)
-    for i, val in enumerate(difGVG):
-        if val < 0:
-            print(i, val, "diff(GVG)<0")
-            raise ValueError("diff(GVG)<0")
+            current_volume = initial_volume * fnr[i] + np.sum(volume_increments * fnr[:i])
+
+            # Update cumulative volume: each class adds its computed volume.
+            cumulative_volumes[i] = cumulative_volumes[i-1] + current_volume
+        
+        # Update the radii for the already processed classes by adding dr,
+        # then reset the current class radius to the minimum.
+        radii[:i] += dr
+        radii[i] = r_min
+
+        # Build the radius matrix: for column i, store the radii for previous classes.
+        radius_matrix[:i, i] = radii[:i]
+        radius_matrix[i, i] = radii[i]
+        
+        # Determine the formation time for this class by finding which 
+        # time index in tGn corresponds to the cumulative volume.
+        lower_inds = np.where(Gn <= cumulative_volumes[i])[0]
+        upper_inds = np.where(Gn >= cumulative_volumes[i])[0]
+        i_lower = lower_inds[-1] if lower_inds.size > 0 else upper_inds[0]
+        i_upper = upper_inds[0] if upper_inds.size > 0 else lower_inds[-1]
+        
+        # If the cumulative volume exactly matches one value, use that formation time;
+        # otherwise, interpolate between the two nearest time points.
+        if i_lower == i_upper:
+            formation_times[i] = tGn[i_upper]
+        else:
+            formation_times[i] = np.interp(cumulative_volumes[i],
+                                           [Gn[i_lower], Gn[i_upper]],
+                                           [tGn[i_lower], tGn[i_upper]])
+    
+    return cumulative_volumes, formation_times, radii, radius_matrix
+
+class GarnetGenerator:
+    def __init__(self, Pi, Ti, ti, data, X, Xoxides, sys_in,
+                 r_min=10, r_max=100, garnet_classes=99, nR_diff=99, fractionate=False):
+        self.Pi = Pi
+        self.Ti = Ti
+        self.ti = ti
+        self.data = data
+        self.X = X
+        self.Xoxides = Xoxides
+        self.sys_in = sys_in
+        self.r_min = r_min
+        self.r_max = r_max
+        self.garnet_classes = garnet_classes
+        self.nR_diff = nR_diff
+        self.fractionate = fractionate
+
+        self.extract_garnet_data()
+
+    def extract_garnet_data(self):
+        from .MAGEMin_functions import MAGEMinGarnetCalculator
+        garnet_generator = MAGEMinGarnetCalculator()
+
+        (self.gt_mol_frac, self.gt_wt_frac, self.gt_vol_frac,
+         self.d_gt_mol_frac, self.d_gt_wt_frac,
+         self.Mgi, self.Mni, self.Fei, self.Cai) = garnet_generator.gt_over_path(
+            self.Pi, self.Ti, self.data, self.X, self.Xoxides,
+            self.sys_in, fractionate=self.fractionate
+        )
+
+    def _reset_variables(self):
+        ### reset everything to None
+        (self.gt_mol_frac, self.gt_wt_frac, self.gt_vol_frac,
+         self.d_gt_mol_frac, self.d_gt_wt_frac,
+         self.Mgi, self.Mni, self.Fei, self.Cai) = [None]*9
 
 
-    ### first growth point of garnet
-    first_growth_point = np.where(GVG > 0)[0][0]
-    ### final growth point of garnet
-    final_growth_point = np.where(GVG == 1)[0][0]
+    def generate_garnets(self, size_dist='N'):
+        """Generates garnet distributions.
 
-    ### Find where the garnet is growing (GVG between 0 and 1)
-    # ind = np.arange(first_growth_point, final_growth_point+1, 1)
+        Parameters:
+            size_dist (str or array-like): 
+                'N' for a normal distribution, 
+                'U' for a uniform distribution, or 
+                a user-defined numeric distribution array of length equal to garnet_classes.
+            
+        Returns:
+            garnets (list): List of garnet data dictionaries.
+        """
 
-    ind = np.where( (GVG > 0.) & (GVG < 1) )[0]
+        # Use garnet volume increments and compositions from instance data
+        GVi = np.array(self.gt_vol_frac)
+        nPT = len(GVi)
 
-    if len(GVG) <= 3:
-        raise ValueError("GVG is too short")
+        # Build a monotonically increasing garnet volume sequence (GVG)
+        GVG = [GVi[0]]
+        for i in range(1, nPT):
+            if GVi[i] <= max(GVG):
+                GVG.append(max(GVG))
+            else:
+                GVG.append(GVi[i])
+        GVG = np.array(GVG) / np.max(GVG)  # normalize to 1
 
+        # #### Identify growth period and select data corresponding to the growth stage
+        # ind = np.where((GVG > 0.))[0] #& (GVG < 1))[0]
+        ind = np.where( (GVG > 0.) & (GVG < 1) )[0]
 
-    ### select data from the growth stage
-    tG = ti[ind]
-    TG = Ti[ind]
-    PG = Pi[ind]
-    MnG = np.array(Mni)[ind]
-    MgG = np.array(Mgi)[ind]
-    FeG = np.array(Fei)[ind]
-    CaG = np.array(Cai)[ind]
-    GVG = np.array(GVG)[ind]
+        self._ind = ind
+        
+        tG = self.ti[ind]
+        TG = self.Ti[ind]
+        PG = self.Pi[ind]
+        MnG = np.array(self.Mni)[ind]
+        MgG = np.array(self.Mgi)[ind]
+        FeG = np.array(self.Fei)[ind]
+        Cai = np.array(self.Cai)[ind]
+        GVG = np.array(GVG)[ind]
 
+        # Generate radius classes
+        n_classes = self.garnet_classes
+        r = np.linspace(self.r_min, self.r_max, n_classes, endpoint=True)
+        dr = r[1] - r[0]
 
-    size_dist = 'N'  # type of garnet size distribution
-    n_classes = garnet_classes  # number of garnet classes
+        # Determine distribution for garnet sizes
+        if isinstance(size_dist, str):
+            if size_dist == 'N':  # normal distribution (cut-off)
+                mi = (self.r_min + self.r_max) / 2
+                s = (mi - self.r_min) / 2
+                finp = np.exp(-(r - mi)**2 / 2 / s**2) / np.sqrt(2 * np.pi) / s
+            elif size_dist == 'U':  # uniform distribution
+                finp = np.ones(n_classes)
+            else:
+                raise ValueError("When provided as a string, size_dist must be 'N' or 'U'")
+        elif isinstance(size_dist, (list, np.ndarray)):
+            user_dist = np.array(size_dist, dtype=float)
+            if user_dist.shape[0] != n_classes:
+                raise ValueError("User-defined distribution must have length equal to garnet_classes")
+            finp = user_dist
+        else:
+            raise ValueError("size_dist must be a string ('N' or 'U') or a numeric array")
+        
 
-    # ### radius classes
-    # if garnet_no == 1:
-    #     r_min = 0.01*garnet_r
-    #     r_max = garnet_r
-    # elif garnet_no == garnet_classes:
-    #     r_min = garnet_r
-    #     r_max = 100*garnet_r
-    # else:
-    #     index = garnet_classes - garnet_no
-    #     # We want the xth value to be the garnet radius, and r_min to be at least 0.01
-    #     r_min = 1.
-    #     # Calculate the step size based on the position of garnet radius and r_min
-    #     # The step is the difference between the garnet radius (garnet_r) and r_min, divided by the index of the target value
-    #     step = (garnet_r - r_min) / (index + 1)
+        # Normalization of the distribution
+        v = 4/3 * np.pi * r**3
+        V = np.sum(v * finp)
+        fn = finp / V
+        fnr = fn[::-1]  # reverse order: largest garnet goes first
 
-    #     # Calculate r_max based on the step size
-    #     # r_max is the target value (0.5) plus the step size times the number of steps remaining after the target value
-    #     r_max = garnet_r + step * (n_classes - index)
+        Gn = GVG / np.max(GVG)
+        tGn = tG
 
-    # r=np.linspace(r_min,r_max,n_classes)
-
-    # Generate radius classes
-    r = np.linspace(r_min, r_max, n_classes)
-    dr = r[1] - r[0]  # spacing between consecutive radii
-    nr = n_classes  # equivalent to len(r)
-
-    # No rescaling: garnet size corresponds to its order
-    r_resc = r[n_classes - garnet_no]
-
-
-    if size_dist == 'N':  # normal distribution (cut off)
-        mi = (r_min + r_max) / 2
-        s = (mi - r_min) / 2
-        finp = np.exp(-(r - mi)**2 / 2 / s**2) / np.sqrt(2 * np.pi) / s
-    elif size_dist == 'U':  # user defined
-        finp = np.ones(n_classes)  # /n_classes
-
-    # normalization
-    v = 4/3 * np.pi * r**3
-    V = np.sum(v * finp)
-    fn = finp / V
-    check_fn = np.sum(v * fn)
-    fnr = fn[::-1]  # the largest garnet goes first
-
-
-    # normalization
-    Gn = GVG / np.max(GVG)
-    tGn = tG 
-
-
-    G, t, r_r, R = generate_garnet_distribution(n_classes, r_min, dr, fnr, Gn, tGn)
+        G, t, r_r, R = generate_distribution(n_classes, self.r_min, dr, fnr, Gn, tGn)
 
 
-    # PT and concentrations along equidistant r
-    PGrw = np.interp(t, tG, PG)
-    TGrw = np.interp(t, tG, TG)
-    Mnrw = np.interp(t, tG, MnG)
-    Mgrw = np.interp(t, tG, MgG)
-    Ferw = np.interp(t, tG, FeG)
-    # Carw = np.interp(t, tG, CaG)
-    Carw = 1 - Mnrw - Mgrw - Ferw
+        # Interpolate physical properties along the garnet growth
+        PGrw = np.interp(t, tG, PG)
+        TGrw = np.interp(t, tG, TG)
+        Mnrw = np.interp(t, tG, MnG)
+        Mgrw = np.interp(t, tG, MgG)
+        Ferw = np.interp(t, tG, FeG)
+        Carw = 1 - Mnrw - Mgrw - Ferw
 
-    # Preparation of selected garnet for make_diffusion
-    ind = np.arange(garnet_no_python, nr)  
+        garnets = []
+        for i in range(n_classes):
+            ind_range = np.arange(i, n_classes)
+            Rr1 = R[i, ind_range]
+            tr1 = t[ind_range]
+            Pr1 = PGrw[ind_range]
+            Tr1 = TGrw[ind_range]
+            Mnr1 = Mnrw[ind_range]
+            Mgr1 = Mgrw[ind_range]
+            Fer1 = Ferw[ind_range]
+            Car1 = 1 - Mnr1 - Mgr1 - Fer1
 
-    Rr1 = R[garnet_no_python, ind]
+            dRr = Rr1[-1] / self.nR_diff
+            Rrz = np.arange(dRr, Rr1[-1] + dRr, dRr)
+            trz = np.interp(Rrz, Rr1, tr1)
+            Prz = np.interp(Rrz, Rr1, Pr1)
+            Trz = np.interp(Rrz, Rr1, Tr1)
+            Mnrz = np.interp(Rrz, Rr1, Mnr1)
+            Mgrz = np.interp(Rrz, Rr1, Mgr1)
+            Ferz = np.interp(Rrz, Rr1, Fer1)
+            Carz = 1 - Mnrz - Mgrz - Ferz
 
-    Rr1  =( Rr1/Rr1.max() ) *r_resc
+            Rr_full = np.concatenate([[0], Rrz])
+            tr_full = np.concatenate([[trz[0]], trz])
+            Pr_full = np.concatenate([[Prz[0]], Prz])
+            Tr_full = np.concatenate([[Trz[0]], Trz])
+            Mnr_full = np.concatenate([[Mnrz[0]], Mnrz])
+            Mgr_full = np.concatenate([[Mgrz[0]], Mgrz])
+            Fer_full = np.concatenate([[Ferz[0]], Ferz])
+            Car_full = np.concatenate([[Carz[0]], Carz])
 
+            iteration_data = {
+                "Rr": Rr_full,
+                "tr": tr_full,
+                "Pr": Pr_full,
+                "Tr": Tr_full,
+                "Mnr": Mnr_full,
+                "Mgr": Mgr_full,
+                "Fer": Fer_full,
+                "Car": Car_full
+            }
+            garnets.append(iteration_data)
+        
+        return garnets
 
-    # Extract data corresponding to the growth of the selected garnet (garnet_no)
-    tr1 = np.array(t)[ind] 
-    Pr1 = PGrw[ind]
-    Tr1 = TGrw[ind]
-    Mnr1 = Mnrw[ind]
-    Mgr1 = Mgrw[ind]
-    Fer1 = Ferw[ind]
-    # Car1 = Carw[ind]
-    Car1 = 1 - Mnr1 - Mgr1 - Fer1
+    def plot_garnet_summary(self, size_dist='N', Rmax=None, garnet_no=0, path=None):
+        """
+        Plot a summary of the garnet formation results.
+        
+        Parameters:
+            size_dist (str or array-like): 
+                'N' for a normal distribution, 'U' for uniform,
+                or a user-defined numeric array (length=garnet_classes).
+            Rmax (float, optional): Maximum radius for subplot 5.
+            path (str, optional): Path to save the figure.
+        """
+        # --- Recompute intermediate quantities (as in generate_garnets) ---
+        # Use garnet volume increments and compositions from instance data
+        GVi = np.array(self.gt_vol_frac)
+        nPT = len(GVi)
 
-    # Final profiles of the selected garnet - nR_diff shells
-    dRr = Rr1[-1] / nR_diff
-    Rrz = np.arange(dRr, Rr1[-1]+dRr, dRr)
+        GVG = [GVi[0]]
+        for i in range(1, nPT):
+            if GVi[i] <= max(GVG):
+                GVG.append(max(GVG))
+            else:
+                GVG.append(GVi[i])
+        GVG = np.array(GVG) / np.max(GVG)  # normalize to 1
 
-    ### interp values from old radius to new one
-    trz = np.interp(Rrz, Rr1, tr1)
-    Prz = np.interp(Rrz, Rr1, Pr1)
-    Trz = np.interp(Rrz, Rr1, Tr1) 
-    Mnrz = np.interp(Rrz, Rr1, Mnr1) 
-    Mgrz = np.interp(Rrz, Rr1, Mgr1) 
-    Ferz = np.interp(Rrz, Rr1, Fer1)
-    Carz = 1 - Mnrz - Mgrz - Ferz
+        # Identify growth stage: use only values between 0 and 1.
+        ind = np.where((GVG > 0.) & (GVG < 1))[0]
 
-    # # Add 1st point - the centre
-    Rr = np.concatenate([[0], Rrz])
-    tr = np.concatenate([[trz[0]], trz])
-    Pr = np.concatenate([[Prz[0]], Prz])
-    Tr = np.concatenate([[Trz[0]], Trz])
-    Mnr = np.concatenate([[Mnrz[0]], Mnrz])
-    Mgr = np.concatenate([[Mgrz[0]], Mgrz])
-    Fer = np.concatenate([[Ferz[0]], Ferz])
-    Car = np.concatenate([[Carz[0]], Carz])
+        tG = self.ti[ind]
+        TG = self.Ti[ind]
+        PG = self.Pi[ind]
+        MnG = np.array(self.Mni)[ind]
+        MgG = np.array(self.Mgi)[ind]
+        FeG = np.array(self.Fei)[ind]
+        # GVG is already normalized
+        GVG = GVG[ind]
 
-    # ### scale the values to the scaled 
-    # Rr  = Rr / np.max(Rr) * r_resc
+        n_classes = self.garnet_classes
+        r = np.linspace(self.r_min, self.r_max, n_classes, endpoint=True)
+        dr = r[1] - r[0]
 
-    Rmax = R[~np.isnan(R)].max()
-    # R = ( (R / Rmax) * ((n_classes-garnet_no)/n_classes) ) * r_resc
+        # Determine distribution for garnet sizes
+        if isinstance(size_dist, str):
+            if size_dist == 'N':  # normal distribution (cut-off)
+                mi = (self.r_min + self.r_max) / 2
+                s = (mi - self.r_min) / 2
+                finp = np.exp(-(r - mi)**2 / 2 / s**2) / np.sqrt(2 * np.pi) / s
+            elif size_dist == 'U':  # uniform distribution
+                finp = np.ones(n_classes)
+            else:
+                raise ValueError("When provided as a string, size_dist must be 'N' or 'U'")
+        elif isinstance(size_dist, (list, np.ndarray)):
+            user_dist = np.array(size_dist, dtype=float)
+            if user_dist.shape[0] != n_classes:
+                raise ValueError("User-defined distribution must have length equal to garnet_classes")
+            finp = user_dist
+        else:
+            raise ValueError("size_dist must be a string ('N' or 'U') or a numeric array")
+        
+        # Normalize the distribution by volume
+        v = 4/3 * np.pi * r**3
+        V = np.sum(v * finp)
+        fn = finp / V
+        fnr = fn[::-1]  # reverse order: largest garnet first
 
+        Gn = GVG / np.max(GVG)
+        tGn = tG
 
-    if plot_figs == True:
-        fig, axs = plt.subplots(3, 2, figsize=(10, 15))  # Create a figure with 3x2 subplots
+        # Compute garnet distribution characteristics (using generate_distribution)
+        G, t_arr, r_r, R = generate_distribution(n_classes, self.r_min, dr, fnr, Gn, tGn)
+        
+        # Interpolate physical properties along garnet growth
+        PGrw = np.interp(t_arr, tG, PG)
+        TGrw = np.interp(t_arr, tG, TG)
+        Mnrw = np.interp(t_arr, tG, MnG)
+        Mgrw = np.interp(t_arr, tG, MgG)
+        Ferw = np.interp(t_arr, tG, FeG)
+        
+        # Set a default for Rmax if not provided
+        if Rmax is None:
+            Rmax = r_r.max()
+
+        # --- Create the summary subplots ---
+        fig, axs = plt.subplots(3, 2, figsize=(10, 15))
         fig.suptitle('Garnet formation summary')
 
-        # Subplot 1
+        # Subplot 1: Garnet size
         axs[0, 0].set_title('Garnet size')
         axs[0, 0].set_xlabel('r')
         axs[0, 0].set_ylabel('f')
@@ -329,216 +337,69 @@ def generate_garnets(GVi, Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet
         for i in range(n_classes):
             axs[0, 0].plot([r_r[i], r_r[i]], [0, finp[i]], '-')
 
-        # Subplot 2
-        axs[0, 1].set_title('classes birth place')
+        # Subplot 2: Classes' birth place
+        axs[0, 1].set_title('Classes birth place')
         axs[0, 1].set_xlabel('T')
         axs[0, 1].set_ylabel('P')
-        axs[0, 1].plot(Ti, Pi)
-        axs[0, 1].plot(TGrw, PGrw, 'r.')  # where the garnet classes were formed
-        # selected garnet
-        axs[0, 1].plot(TGrw[garnet_no_python], PGrw[garnet_no_python], 'ko')
-        axs[0, 1].plot(TGrw[garnet_no_python], PGrw[garnet_no_python], 'kx')
-        axs[0, 1].text(TGrw[garnet_no_python]*1.02, PGrw[garnet_no_python], str(garnet_no))
+        axs[0, 1].plot(self.Ti, self.Pi)
+        axs[0, 1].plot(self.Ti, self.Pi, 'kx')
+        axs[0, 1].plot(TGrw, PGrw, 'r.')  # locations where garnet classes formed
 
-        # Subplot 3
-        axs[1, 0].set_title('classes growth')
+        # Subplot 3: Classes growth
+        axs[1, 0].set_title('Classes growth')
         axs[1, 0].set_xlabel('t')
         axs[1, 0].set_ylabel('r')
-
-        for i in range(0, nr, 10):
-            axs[1, 0].plot(t[i:], R[i, i:], 'r.-')
-
-        if garnet_no_python <= nr:
-            axs[1, 0].plot(t[garnet_no_python:], R[garnet_no_python, garnet_no_python:], 'k.:', linewidth=1)
-            axs[1, 0].text(t[-1]*1.02, R[garnet_no_python, -1], str(garnet_no))
-        else:
-            print('wrong garnet_no')
-
-        # Subplot 4
-        axs[1, 1].set_title('volume consumption')
+        for i in range(0, n_classes, 10):
+            axs[1, 0].plot(t_arr[i:], R[i, i:], 'r.-')
+        
+        # Subplot 4: Volume consumption
+        axs[1, 1].set_title('Volume consumption')
         axs[1, 1].set_xlabel('t')
         axs[1, 1].set_ylabel('GV')
         axs[1, 1].set_ylim([0, 1.01])
         axs[1, 1].plot(tGn, Gn, 'k')
-        axs[1, 1].plot(t, G, 'mx')  # formation of classes
-        axs[1, 1].plot(t[garnet_no_python], G[garnet_no_python], 'ko')  # selected garnet
-        axs[1, 1].plot(t[garnet_no_python], G[garnet_no_python], 'kx')  # selected garnet
+        axs[1, 1].plot(t_arr, G, 'mx')
         axs[1, 1].grid(True)
 
-        # Subplot 5
+        # Subplot 5: Elemental compositions
         axs[2, 0].set_title('Mn(b) Mg(r) Fe(m) Ca(g)')
         axs[2, 0].set_xlabel('r')
         axs[2, 0].set_ylabel('c')
         axs[2, 0].set_xlim([0, Rmax])
-        # i = 0
-        # ind = np.arange(i, nr)
-        # rplt = R[i, :]
-        # axs[2, 0].plot(rplt[ind], Mnrw[ind], 'b-', rplt[ind], Mgrw[ind], 'r-', rplt[ind], Ferw[ind], 'm-', rplt[ind], Carw[ind], 'g-', linewidth=2)
-
-        for i in np.arange(0 , nr, 10):  # 1:nr
-            ind = np.arange(i, nr)
+        for i in np.arange(0, n_classes, 10):
+            ind_local = np.arange(i, n_classes)
             rplt = R[i, :]
-            axs[2, 0].plot(rplt[ind], Mnrw[ind], '-b', rplt[ind], Mgrw[ind], 'r-', rplt[ind], Ferw[ind], 'm-', rplt[ind], Carw[ind], 'g-')
+            axs[2, 0].plot(rplt[ind_local], Mnrw[ind_local], '-b',
+                           rplt[ind_local], Mgrw[ind_local], 'r-',
+                           rplt[ind_local], Ferw[ind_local], 'm-',
+                           rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'g-')
+        # Subplot 6: Garnet composition
+        for ax in [axs[2,0], axs[2,1]]:
+            ax.set_title('Mn(b) Mg(r) Fe(m) Ca(g)')
+            ax.set_xlabel('r')
+            ax.set_ylabel('c')
+            ax.set_xlim([0, Rmax])
+            i = garnet_no ### highlight the defined garnet number
+            ind_local = np.arange(i, n_classes)
+            rplt = R[i, :]
+            ax.plot(rplt[ind_local], Mnrw[ind_local], 'bx',
+                        rplt[ind_local], Mgrw[ind_local], 'rx',
+                        rplt[ind_local], Ferw[ind_local], 'mx',
+                        rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'gx', linewidth=2)
+            
+        axs[2,1].plot(rplt[ind_local], Mnrw[ind_local], 'b-',
+            rplt[ind_local], Mgrw[ind_local], 'r-',
+            rplt[ind_local], Ferw[ind_local], 'm-',
+            rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'g-', linewidth=2)
 
-        i = garnet_no_python
-        ind = np.arange(i, nr)
-        rplt = R[i, :]
-        axs[2, 0].plot(rplt[ind], Mnrw[ind], 'bx', rplt[ind], Mgrw[ind], 'rx', rplt[ind], Ferw[ind], 'mx', rplt[ind], Carw[ind], 'gx', linewidth=2)
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-
-
-        # Subplot 6
-        axs[2, 1].set_title(f'Garnet No {garnet_no}')
-        axs[2, 1].set_xlabel('r')
-        axs[2, 1].set_ylabel('c')
-        axs[2, 1].set_xlim([0, Rr.max()])
-        axs[2, 1].set_ylim([0, 1])
-        axs[2, 1].plot(Rr, Mnr, '-b', Rr, Mgr, 'r-', Rr, Fer, 'm-', Rr, Car, 'g-', linewidth=2)
-
-
-        
-
-
-    return Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car
-
-
-def generate_garnet_from_perpleX(Pi, 
-                                 Ti,
-                                 ti, 
-                                 data_loc,
-                                 r_min=10,
-                                 r_max=100, 
-                                 garnet_classes=99,
-                                 nR_diff=99,
-                                 garnet_no=50,
-                                 plot_figs=False,):
-    """
-    Generate a Garnet crystal from a PTt path.
-
-    Args:
-        Pi (array): Pressure component along PTt path.
-        Ti (array): Temperature component of PTt path.
-        ti (array): time component of PTt path.
-        data_loc (path): location of Garnet data [Vol (vol%), Fe, Mg, Mn, Ca].
-        plot_figs (bool): Plot figures summarising the Garnet generation [optional].
-        n_pts (int): Number of PTt points to resample at [optional].
-        garnet_r (int): Radius of the garnet crystal [optional].
-        garnet_no (int): select a Garnet crystal from the normal distribution [optional]. 
-    Returns:
-        Rr : Garnet radius
-        tr : time of model
-        Pr : Pressure at each radius
-        Tr : Temperature at each radius
-        Mnr: Mn concentration at each radius
-        Mgr: Mg concentration at each radius
-        Fer: Fe concentration at each radius
-        Car: Ca concentration at each radius
-
-    """ 
-    # if PTt_path == None:
-    #     print("PTt_path must be specified")
-    #     exit()
-    
-    if type(data_loc) == None:
-        RuntimeError("Please supply path to location of Garnet data")
-    
-    if garnet_no >= 100:
-        RuntimeError("garnet_no must be < 100 (0 is the largest garnet)")
+        if path is not None:
+            plt.savefig(path)
 
 
-    ### read in garnet 2D griddata data from perplex'''
-    gt_vol = pd.read_csv(f'{data_loc}/vol.tab', sep='\s+', skiprows=12)
-
-    gt_Fe = pd.read_csv(f'{data_loc}/Fe.tab', sep='\s+', skiprows=12)
-    gt_Mg = pd.read_csv(f'{data_loc}/Mg.tab', sep='\s+', skiprows=12)
-    gt_Mn = pd.read_csv(f'{data_loc}/Mn.tab', sep='\s+', skiprows=12)
-    gt_Ca = pd.read_csv(f'{data_loc}/Ca.tab', sep='\s+', skiprows=12)
-
-
-    #### grid the Perplex data
-    V_grid, T_grid, P_grid = grid_perplex_data(gt_vol.iloc[:,0], gt_vol.iloc[:,1], gt_vol.iloc[:,2])
-    Fe_grid, T_grid, P_grid = grid_perplex_data(gt_Fe.iloc[:,0], gt_Fe.iloc[:,1], gt_Fe.iloc[:,2])
-    Mn_grid, T_grid, P_grid = grid_perplex_data(gt_Mn.iloc[:,0], gt_Mn.iloc[:,1], gt_Mn.iloc[:,2])
-    Mg_grid, T_grid, P_grid = grid_perplex_data(gt_Mg.iloc[:,0], gt_Mn.iloc[:,1], gt_Mg.iloc[:,2])
-    Ca_grid, T_grid, P_grid = grid_perplex_data(gt_Ca.iloc[:,0], gt_Ca.iloc[:,1], gt_Ca.iloc[:,2])
-
-
-    ### numpy array with the P and T points to interpolate the data to
-    points = np.vstack([Ti, Pi]).T
-
-    # Interpolate using griddata
-    GVi = np.nan_to_num(griddata((T_grid.flatten(), P_grid.flatten()), V_grid.flatten(), points, method='linear'))
-
-    Fei = np.nan_to_num(griddata((T_grid.flatten(), P_grid.flatten()), Fe_grid.flatten(), points, method='linear'))
-
-
-    Mni = np.nan_to_num(griddata((T_grid.flatten(), P_grid.flatten()), Mn_grid.flatten(), points, method='linear'))
-
-
-    Mgi = np.nan_to_num(griddata((T_grid.flatten(), P_grid.flatten()), Mg_grid.flatten(), points, method='linear'))
-
-
-    Cai = np.nan_to_num(griddata((T_grid.flatten(), P_grid.flatten()), Ca_grid.flatten(), points, method='linear'))
-
-
-    # The first GVi must be 0, we will call it reduction (we neglect the previous history - we recommend starting from a zero field of garnet)
-    GVi = GVi - GVi[0]  # reduction (previous history neglected)
-
-    Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(GVi,  Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, r_min, r_max, nR_diff, plot_figs)
+        plt.show()
 
 
 
 
-
-    return Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car 
-
-
-def generate_garnet_from_MAGEMin(Pi, 
-                                 Ti,
-                                 ti,
-                                 data,
-                                 X,
-                                 Xoxides,
-                                 sys_in,
-                                 r_min=10,
-                                 r_max=100, 
-                                 garnet_classes=99,
-                                 nR_diff=99,
-                                 garnet_no=50,
-                                 plot_figs=False,
-                                 fractionate=False,):
-    """
-    Generate garnet from MAGEMin data.
-
-    Parameters:
-        Pi (float): Pressure in kbar
-        Ti (float): Temperature in K
-        ti (float): Time in Myr
-        db (str): MAGEMin database object
-        X (array): Bulk rock composition
-        Xoxides (array): Oxide composition of bulk rock
-        garnet_r (int, optional):  Garnet radius. Defaults to 0.
-        garnet_classes (int, optional): Number of garnet classes. Defaults to 99.
-        nR_diff (int, optional): Number of shells to create in the Garnet. Defaults to 99.
-        garnet_no (int, optional): Number of garnets. Defaults to 50.
-        plot_figs (bool, optional): Whether to plot figures. Defaults to False.
-        fractionate (bool, optional): Whether to fractionate the bulk rock as garnet forms. Defaults to False.
-
-    Returns:
-        tuple: Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car
-    """
-        
-    from .MAGEMin_functions import gt_over_path
-
-    # gt_mol_frac, py_arr, alm_arr, spss_arr, gr_arr, kho_arr = garnet_over_path(Pi, Ti, data, X, Xoxides, sys_in, fractionate=0)
-
-    gt_mol_frac, gt_wt_frac, gt_vol_frac, d_gt_mol_frac, d_gt_wt_frac, Mgi, Mni, Fei, Cai = gt_over_path(Pi, Ti, data, X, Xoxides, sys_in, fractionate=fractionate)
-
-     # # The first GVi must be 0, we will call it reduction (we neglect the previous history - we recommend starting from a zero field of garnet)
-    ### This is now done in the fractionation path
-
-
-    # Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(GVi,  py_arr, spss_arr, alm_arr, gr_arr, ti, Ti, Pi, garnet_classes, garnet_no, garnet_r, nR_diff, plot_figs)
-    Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car  = generate_garnets(gt_vol_frac,  Mgi, Mni, Fei, Cai, ti, Ti, Pi, garnet_classes, garnet_no, r_min, r_max, nR_diff, plot_figs)
-
-    return Rr, tr, Pr, Tr, Mnr, Mgr, Fer, Car 

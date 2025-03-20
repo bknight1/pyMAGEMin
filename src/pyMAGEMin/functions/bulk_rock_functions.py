@@ -317,7 +317,7 @@ def calculate_molar_fractions(endmember_fractions):
     molar_amounts['Ca'] += endmember_fractions['gr'] * 3   # 3 Ca in Grossular
     molar_amounts['Mn'] += endmember_fractions['spss'] * 3  # 3 Mn in Spessartine
     molar_amounts['Mg'] += endmember_fractions['kho'] * 3   # 3 Mg in Khoharite 
-    # molar_amounts['Fe'] += endmember_fractions['Kho'] * 2   # TODO - Effects Fe3 on the Y mixing site, can this be ignored ???
+    # molar_amounts['Fe'] += endmember_fractions['Kho'] * 2   #  Effects of Fe3 are on the Y mixing site, which can be ignored (???)
 
     # Calculate total moles of these elements
     total_moles = sum(molar_amounts.values())
