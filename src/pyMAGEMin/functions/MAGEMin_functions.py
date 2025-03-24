@@ -208,17 +208,17 @@ class MAGEMinCalculator:
         """
         solidus_T = float(initial_T)
         out = self.MAGEMin_C.single_point_minimization(P, solidus_T, data)
-        phase_frac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
-        if phase_frac == 0:
-            raise ValueError(f'Increase initial temperature guess; phase fraction = {phase_frac}')
-        if phase_frac == 1:
-            warnings.warn(f'Decrease initial temperature guess; phase fraction = {phase_frac}')
-        while phase_frac > 0:
+        phasefrac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
+        if phasefrac == 0:
+            raise ValueError(f'Increase initial temperature guess; phase fraction = {phasefrac}')
+        if phasefrac == 1:
+            warnings.warn(f'Decrease initial temperature guess; phase fraction = {phasefrac}')
+        while phasefrac > 0:
             solidus_T -= precision
             out = self.MAGEMin_C.single_point_minimization(P, solidus_T, data)
-            phase_frac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
+            phasefrac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
             if verbose:
-                print(f"phase frac: {phase_frac:.4f}, T: {solidus_T:.2f}")
+                print(f"phase frac: {phasefrac:.4f}, T: {solidus_T:.2f}")
         return solidus_T
 
     def find_phase_saturation(self, P, initial_T, data, phase, sys_in='mol', precision=1., verbose=False):
@@ -227,15 +227,15 @@ class MAGEMinCalculator:
         """
         liquidus_T = float(initial_T)
         out = self.MAGEMin_C.single_point_minimization(P, liquidus_T, data)
-        phase_frac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
-        if phase_frac == 1:
-            raise ValueError(f'Decrease initial temperature guess; liquid fraction = {phase_frac}')
-        if phase_frac == 0:
-            warnings.warn(f'Increase initial temperature guess; liquid fraction = {phase_frac}')
-        while phase_frac < 1:
+        phasefrac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
+        if phasefrac == 1:
+            raise ValueError(f'Decrease initial temperature guess; liquid fraction = {phasefrac}')
+        if phasefrac == 0:
+            warnings.warn(f'Increase initial temperature guess; liquid fraction = {phasefrac}')
+        while phasefrac < 1:
             liquidus_T += precision
             out = self.MAGEMin_C.single_point_minimization(P, liquidus_T, data)
-            phase_frac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
+            phasefrac = phase_frac(phase=phase, MAGEMinOutput=out, sys_in=sys_in)
             if verbose:
-                print(f"phase frac: {phase_frac:.4f}, T: {liquidus_T:.2f}")
+                print(f"phase frac: {phasefrac:.4f}, T: {liquidus_T:.2f}")
         return liquidus_T
