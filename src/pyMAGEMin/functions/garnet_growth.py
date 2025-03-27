@@ -111,6 +111,44 @@ class GarnetGenerator:
         (self.gt_mol_frac, self.gt_wt_frac, self.gt_vol_frac,
          self.d_gt_mol_frac, self.d_gt_wt_frac,
          self.Mgi, self.Mni, self.Fei, self.Cai) = [None]*9
+        
+    def get_retrograde_concentrations(self):
+        """Get the retrograde concentrations of garnet-forming elements.
+            
+        Returns:
+            Concentrations (array): An array with the element concentrations and PTt data at each retrograde step.
+        """
+
+        # Use garnet volume increments and compositions from instance data
+        GVi = np.array(self.gt_vol_frac)
+        nPT = len(GVi)
+
+        # Build a monotonically increasing garnet volume sequence (GVG)
+        GVG = [GVi[0]]
+        for i in range(1, nPT):
+            if GVi[i] <= max(GVG):
+                GVG.append(max(GVG))
+            else:
+                GVG.append(GVi[i])
+        GVG = np.array(GVG) / np.max(GVG)  # normalize to 1
+
+        # #### Identify the retrograde stage and select corresponding data
+        ind = np.where(GVG == 1)[0]
+
+        self._ind = ind
+        
+        tG = self.ti[ind]
+        TG = self.Ti[ind]
+        PG = self.Pi[ind]
+        MnG = np.array(self.Mni)[ind]
+        MgG = np.array(self.Mgi)[ind]
+        FeG = np.array(self.Fei)[ind]
+        CaG = np.array(self.Cai)[ind]
+        GVG = np.array(GVG)[ind]
+
+        
+        return np.column_stack([tG, TG, PG, MnG, MgG, FeG, CaG])
+
 
 
     def generate_garnets(self, size_dist='N'):
