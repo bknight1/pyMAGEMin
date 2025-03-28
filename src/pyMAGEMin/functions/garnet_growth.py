@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import PchipInterpolator, griddata
+from scipy.interpolate import interp1d
 
 def generate_distribution(n_classes, r_min, dr, fnr, Gn, tGn):
     """
@@ -111,29 +111,62 @@ class GarnetGenerator:
         (self.gt_mol_frac, self.gt_wt_frac, self.gt_vol_frac,
          self.d_gt_mol_frac, self.d_gt_wt_frac,
          self.Mgi, self.Mni, self.Fei, self.Cai) = [None]*9
+    
+    def _compute_normalized_GVG(self, GVi):
+        """Compute and return normalized garnet volume sequence (GVG)"""
+        GVG = [GVi[0]]
+        for i in range(1, len(GVi)):
+            if GVi[i] <= max(GVG):
+                GVG.append(max(GVG))
+            else:
+                GVG.append(GVi[i])
+        return np.array(GVG) / np.max(GVG)
+    
+    def _get_size_distribution(self, size_dist, r):
+        """Compute the garnet size distribution based on size_dist input"""
+        n_classes = len(r)
+        if isinstance(size_dist, str):
+            if size_dist == 'N':  # normal distribution
+                mi = (self.r_min + self.r_max) / 2
+                s = (mi - self.r_min) / 2
+                finp = np.exp(-(r - mi)**2 / (2 * s**2)) / (np.sqrt(2 * np.pi) * s)
+            elif size_dist == 'U':  # uniform distribution
+                finp = np.ones(n_classes)
+            else:
+                raise ValueError("When provided as a string, size_dist must be 'N' or 'U'")
+        elif isinstance(size_dist, (list, np.ndarray)):
+            user_dist = np.array(size_dist, dtype=float)
+            if user_dist.shape[0] != n_classes:
+                raise ValueError("User-defined distribution must have length equal to garnet_classes")
+            finp = user_dist
+        else:
+            raise ValueError("size_dist must be a string ('N' or 'U') or a numeric array")
+        return finp
+
+    def _normalize_distribution(self, finp, r):
+        """Normalize the size distribution using volume and return reversed array (fnr)."""
+        v = 4/3 * np.pi * r**3
+        V = np.sum(v * finp)
+        fn = finp / V
+        return fn[::-1]  # reverse order: largest garnet goes first
         
-    def get_retrograde_concentrations(self):
+    def get_retrograde_concentrations(self, new_t=None):
         """Get the retrograde concentrations of garnet-forming elements.
+
+        Parameters:
+            new_t (array-like, optional): New time values to interpolate the data
+                and return the concentrations at these times. If None, the original
+                data is returned. Uses a linear interpolation between datapoints.
             
         Returns:
             Concentrations (array): An array with the element concentrations and PTt data at each retrograde step.
         """
 
-        # Use garnet volume increments and compositions from instance data
+        # Compute normalized GVG
         GVi = np.array(self.gt_vol_frac)
-        nPT = len(GVi)
 
-        # Build a monotonically increasing garnet volume sequence (GVG)
-        GVG = [GVi[0]]
-        for i in range(1, nPT):
-            if GVi[i] <= max(GVG):
-                GVG.append(max(GVG))
-            else:
-                GVG.append(GVi[i])
-        GVG = np.array(GVG) / np.max(GVG)  # normalize to 1
-
-        # #### Identify the retrograde stage and select corresponding data
-        ind = np.where(GVG == 1)[0]
+        GVG = self._compute_normalized_GVG(GVi)
+        ind = np.where((GVG == 1))[0]
 
         self._ind = ind
         
@@ -145,9 +178,33 @@ class GarnetGenerator:
         FeG = np.array(self.Fei)[ind]
         CaG = np.array(self.Cai)[ind]
         GVG = np.array(GVG)[ind]
-
         
-        return np.column_stack([tG, TG, PG, MnG, MgG, FeG, CaG])
+        if new_t is not None:
+            # interpolate onto new time values
+            interp_TG = interp1d(tG, TG, kind='linear', fill_value='extrapolate')
+            interp_PG = interp1d(tG, PG, kind='linear', fill_value='extrapolate')
+            interp_MnG = interp1d(tG, MnG, kind='linear', fill_value='extrapolate')
+            interp_MgG = interp1d(tG, MgG, kind='linear', fill_value='extrapolate')
+            interp_FeG = interp1d(tG, FeG, kind='linear', fill_value='extrapolate')
+            interp_CaG = interp1d(tG, CaG, kind='linear', fill_value='extrapolate')
+            interp_GVG = interp1d(tG, GVG, kind='linear', fill_value='extrapolate')
+
+            new_TG = interp_TG(new_t)
+            new_PG = interp_PG(new_t)
+            new_MnG = interp_MnG(new_t)
+            new_MgG = interp_MgG(new_t)
+            new_FeG = interp_FeG(new_t)
+            new_CaG = interp_CaG(new_t)
+            new_GVG = interp_GVG(new_t)
+
+            data = np.column_stack([new_t, new_TG, new_PG, new_MnG, new_MgG, new_FeG, new_CaG]).T
+
+        else:
+             data = np.column_stack([tG, TG, PG, MnG, MgG, FeG, CaG]).T
+
+
+
+        return data
 
 
 
@@ -164,22 +221,11 @@ class GarnetGenerator:
             garnets (list): List of garnet data dictionaries.
         """
 
-        # Use garnet volume increments and compositions from instance data
+        # Compute normalized GVG
         GVi = np.array(self.gt_vol_frac)
-        nPT = len(GVi)
+        GVG = self._compute_normalized_GVG(GVi)
 
-        # Build a monotonically increasing garnet volume sequence (GVG)
-        GVG = [GVi[0]]
-        for i in range(1, nPT):
-            if GVi[i] <= max(GVG):
-                GVG.append(max(GVG))
-            else:
-                GVG.append(GVi[i])
-        GVG = np.array(GVG) / np.max(GVG)  # normalize to 1
-
-        # #### Identify growth period and select data corresponding to the growth stage
-        # ind = np.where((GVG > 0.))[0] #& (GVG < 1))[0]
-        ind = np.where( (GVG > 0.) & (GVG < 1) )[0]
+        ind = np.where((GVG > 0.) & (GVG < 1))[0]
 
         self._ind = ind
         
@@ -216,11 +262,8 @@ class GarnetGenerator:
             raise ValueError("size_dist must be a string ('N' or 'U') or a numeric array")
         
 
-        # Normalization of the distribution
-        v = 4/3 * np.pi * r**3
-        V = np.sum(v * finp)
-        fn = finp / V
-        fnr = fn[::-1]  # reverse order: largest garnet goes first
+        # Normalize the distribution by volume
+        fnr = self._normalize_distribution(finp, r)
 
         Gn = GVG / np.max(GVG)
         tGn = tG
@@ -292,20 +335,10 @@ class GarnetGenerator:
             Rmax (float, optional): Maximum radius for subplot 5.
             path (str, optional): Path to save the figure.
         """
-        # --- Recompute intermediate quantities (as in generate_garnets) ---
-        # Use garnet volume increments and compositions from instance data
+        # Compute normalized GVG
         GVi = np.array(self.gt_vol_frac)
-        nPT = len(GVi)
+        GVG = self._compute_normalized_GVG(GVi)
 
-        GVG = [GVi[0]]
-        for i in range(1, nPT):
-            if GVi[i] <= max(GVG):
-                GVG.append(max(GVG))
-            else:
-                GVG.append(GVi[i])
-        GVG = np.array(GVG) / np.max(GVG)  # normalize to 1
-
-        # Identify growth stage: use only values between 0 and 1.
         ind = np.where((GVG > 0.) & (GVG < 1))[0]
 
         tG = self.ti[ind]
@@ -340,10 +373,7 @@ class GarnetGenerator:
             raise ValueError("size_dist must be a string ('N' or 'U') or a numeric array")
         
         # Normalize the distribution by volume
-        v = 4/3 * np.pi * r**3
-        V = np.sum(v * finp)
-        fn = finp / V
-        fnr = fn[::-1]  # reverse order: largest garnet first
+        fnr = self._normalize_distribution(finp, r)
 
         Gn = GVG / np.max(GVG)
         tGn = tG
