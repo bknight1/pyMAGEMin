@@ -247,9 +247,12 @@ class GarnetGenerator:
         # GVn = GVi / GVi.max()
         GVn = self._compute_normalized_GVG(GVi)
 
-        ind = (GVn > 0) & (GVn < 1) # np.where(np.diff(GVi) > 0)[0]
-
+        first_one_idx = np.where(GVn == 1)[0][0]
+        last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
+        
+        ind = np.arange(last_zero_idx, first_one_idx+1)
         GVG = GVn[ind]
+
 
          
         tG = self.ti[ind]
@@ -309,11 +312,12 @@ class GarnetGenerator:
         """
 
         GVi = np.array(self.gt_vol_frac)
-        # GVn = GVi / GVi.max()
         GVn = self._compute_normalized_GVG(GVi)
 
-        ind = (GVn == 1)
+        first_one_idx = np.where(GVn == 1)[0][0]
+        last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
 
+        ind = slice(first_one_idx + 1, None)
         GVG = GVn[ind]
 
         
@@ -382,30 +386,16 @@ class GarnetGenerator:
         """
 
         GVi = np.array(self.gt_vol_frac)
-        # GVn = GVi / GVi.max()
         GVn = self._compute_normalized_GVG(GVi)
 
-        ind = (GVn > 0) & (GVn < 1)
-
-        GVG = GVn[ind]
-
-        # if formation_times is None:
-        #     ind = np.where((GVn > 0.) & (GVn < 1))[0]
-
-        #     GVG = np.array(GVn)[ind]
-        #     # ### prograde only
-
-        #     # # Find the first one after the last zero
-        #     # first_one_idx = np.where(GVn == 1)[0][0]
-
-        #     # # Find the first last zero
-        #     # last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
+        first_one_idx = np.where(GVn == 1)[0][0]
+        last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
 
 
-        #     # ind = np.arange(last_zero_idx+1, first_one_idx+1)
+        if formation_times is None:
+            ind = np.arange(last_zero_idx, first_one_idx+1)
+            GVG = GVn[ind]
 
-
-        #     # GVG = GVn[ind]
 
         #     ### takes into consideration where garnet volume increases (prograde and potentially retrograde)
 
@@ -428,9 +418,9 @@ class GarnetGenerator:
         #     # # Add 1 to all values after the first 1
         #     # GVG[first_one_idx+1:] += 1
 
-        # else:
-        #     ind = np.where((GVn > 0.) )[0]
-        #     GVG = GVn[ind]
+        else:
+            ind = slice(last_zero_idx, None)
+            GVG = GVn[ind]
 
         
 
@@ -529,56 +519,16 @@ class GarnetGenerator:
         """
 
         GVi = np.array(self.gt_vol_frac)
-        # GVn = GVi / GVi.max()
+
         GVn = self._compute_normalized_GVG(GVi)
 
-        ind = (GVn > 0) & (GVn < 1)
+        first_one_idx = np.where(GVn == 1)[0][0]
+        last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
+        ind = np.arange(last_zero_idx, first_one_idx+1)
 
         GVG = GVn[ind]
 
-        # if formation_times is None:
-        #     ind = np.where((GVn > 0.) & (GVn < 1))[0]
-
-        #     GVG = np.array(GVn)[ind]
-
-        #     # ### prograde only
-
-        #     # # Find the first one after the last zero
-        #     # first_one_idx = np.where(GVn == 1)[0][0]
-
-        #     # # Find the first last zero
-        #     # last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
-
-
-        #     # ind = np.arange(last_zero_idx+1, first_one_idx+1)
-
-
-        #     # GVG = GVn[ind]
-
-        #     ### takes into consideration where garnet volume increases (prograde and potentially retrograde)
-
-        #     # dGVn = np.diff(GVi)
-
-        #     # growth_inds = np.where(dGVn > 0)[0]
-
-        #     # growth_inds = growth_inds + 1 
-
-        #     # ind = np.insert(growth_inds, 0 , growth_inds[0] - 1)
-
-        #     # arr = GVn[ind]  # your array
-
-        #     # # Find the index of the first occurrence of 1
-        #     # first_one_idx = np.where(arr == 1)[0][0]
-
-        #     # # Create a copy to avoid modifying the original
-        #     # GVG = arr.copy()
-
-        #     # # Add 1 to all values after the first 1
-        #     # GVG[first_one_idx+1:] += 1
-
-        # else:
-        #     ind = np.where((GVn > 0.) )[0]
-        #     GVG = GVn[ind]
+        
 
         tG = self.ti[ind]
         TG = self.Ti[ind]
