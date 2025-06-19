@@ -154,6 +154,7 @@ def generate_distribution(n_classes, r_min, dr, fnr, Gn, tGn):
 
 class GarnetGenerator:
     def __init__(self, Pi, Ti, ti, data, X, Xoxides, sys_in,
+                 t_start_growth=None, t_end_growth=None,
                  r_min=10, r_max=100, garnet_classes=99, nR_diff=99, fractionate=False):
         self.Pi = Pi
         self.Ti = Ti
@@ -162,6 +163,8 @@ class GarnetGenerator:
         self.X = X
         self.Xoxides = Xoxides
         self.sys_in = sys_in
+        self.t_start_growth = t_start_growth
+        self.t_end_growth = t_end_growth
         self.r_min = r_min
         self.r_max = r_max
         self.garnet_classes = garnet_classes
@@ -251,10 +254,33 @@ class GarnetGenerator:
         last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
         
         ind = np.arange(last_zero_idx, first_one_idx+1)
+
+        if self.t_start_growth is not None and self.t_end_growth is not None:
+            # If both t_start_growth and t_end_growth are specified, we only consider the data within this time range
+            t_start = self.t_start_growth
+            t_end = self.t_end_growth
+            # Find indices where time is within the specified range
+            time_mask = (self.ti >= t_start) & (self.ti <= t_end)
+            # Apply the mask to the indices
+            ind = ind[time_mask[ind]]
+        elif self.t_start_growth is not None:
+            # If only t_start_growth is specified, we consider data from this time onwards
+            t_start = self.t_start_growth
+            time_mask = self.ti >= t_start
+            ind = ind[time_mask[ind]]
+        elif self.t_end_growth is not None:
+            # If only t_end_growth is specified, we consider data up to this time
+            t_end = self.t_end_growth
+            time_mask = self.ti <= t_end
+            ind = ind[time_mask[ind]]
+        else:
+            # If neither is specified, we use the full range of indices
+            ind = slice(last_zero_idx, first_one_idx+1)
+        
+        # ind = slice(last_zero_idx, first_one_idx+1)
+
         GVG = GVn[ind]
 
-
-         
         tG = self.ti[ind]
         TG = self.Ti[ind]
         PG = self.Pi[ind]
@@ -317,10 +343,17 @@ class GarnetGenerator:
         first_one_idx = np.where(GVn == 1)[0][0]
         last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
 
-        ind = slice(first_one_idx + 1, None)
+        if self.t_end_growth is not None:
+            t_end = self.t_end_growth
+            time_mask = self.ti >= t_end
+            ind = time_mask
+        else:
+            ind = slice(first_one_idx, None)
+
+
+
         GVG = GVn[ind]
 
-        
         tG = self.ti[ind]
         TG = self.Ti[ind]
         PG = self.Pi[ind]
@@ -391,39 +424,63 @@ class GarnetGenerator:
         first_one_idx = np.where(GVn == 1)[0][0]
         last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
 
+        ind = np.arange(last_zero_idx, first_one_idx+1)
 
-        if formation_times is None:
-            ind = np.arange(last_zero_idx, first_one_idx+1)
-            GVG = GVn[ind]
-
-
-        #     ### takes into consideration where garnet volume increases (prograde and potentially retrograde)
-
-        #     # dGVn = np.diff(GVi)
-
-        #     # growth_inds = np.where(dGVn > 0)[0]
-
-        #     # growth_inds = growth_inds + 1 
-
-        #     # ind = np.insert(growth_inds, 0 , growth_inds[0] - 1)
-
-        #     # arr = GVn[ind]  # your array
-
-        #     # # Find the index of the first occurrence of 1
-        #     # first_one_idx = np.where(arr == 1)[0][0]
-
-        #     # # Create a copy to avoid modifying the original
-        #     # GVG = arr.copy()
-
-        #     # # Add 1 to all values after the first 1
-        #     # GVG[first_one_idx+1:] += 1
-
+        if self.t_start_growth is not None and self.t_end_growth is not None:
+            # If both t_start_growth and t_end_growth are specified, we only consider the data within this time range
+            t_start = self.t_start_growth
+            t_end = self.t_end_growth
+            # Find indices where time is within the specified range
+            time_mask = (self.ti >= t_start) & (self.ti <= t_end)
+            # Apply the mask to the indices
+            ind = ind[time_mask[ind]]
+        elif self.t_start_growth is not None:
+            # If only t_start_growth is specified, we consider data from this time onwards
+            t_start = self.t_start_growth
+            time_mask = self.ti >= t_start
+            ind = ind[time_mask[ind]]
+        elif self.t_end_growth is not None:
+            # If only t_end_growth is specified, we consider data up to this time
+            t_end = self.t_end_growth
+            time_mask = self.ti <= t_end
+            ind = ind[time_mask[ind]]
         else:
-            ind = slice(last_zero_idx, None)
-            GVG = GVn[ind]
+            # If neither is specified, we use the full range of indices
+            ind = slice(last_zero_idx, first_one_idx+1)
+
+
+        # if formation_times is None:
+        #     ind = np.arange(last_zero_idx, first_one_idx+1)
+        #     GVG = GVn[ind]
+
+
+        # #     ### takes into consideration where garnet volume increases (prograde and potentially retrograde)
+
+        # #     # dGVn = np.diff(GVi)
+
+        # #     # growth_inds = np.where(dGVn > 0)[0]
+
+        # #     # growth_inds = growth_inds + 1 
+
+        # #     # ind = np.insert(growth_inds, 0 , growth_inds[0] - 1)
+
+        # #     # arr = GVn[ind]  # your array
+
+        # #     # # Find the index of the first occurrence of 1
+        # #     # first_one_idx = np.where(arr == 1)[0][0]
+
+        # #     # # Create a copy to avoid modifying the original
+        # #     # GVG = arr.copy()
+
+        # #     # # Add 1 to all values after the first 1
+        # #     # GVG[first_one_idx+1:] += 1
+
+        # else:
+        #     ind = slice(last_zero_idx, None)
+        #     GVG = GVn[ind]
 
         
-
+        GVG = GVn[ind]
         tG = self.ti[ind]
         TG = self.Ti[ind]
         PG = self.Pi[ind]
@@ -507,7 +564,7 @@ class GarnetGenerator:
         
         return garnets
 
-    def plot_garnet_summary(self, size_dist='N', garnet_no=0, path=None, formation_times=None):
+    def plot_garnet_summary(self, size_dist='N', garnet_no=0, path=None, formation_times=None, plot_fig=True):
         """
         Plot a summary of the garnet formation results.
         
@@ -524,11 +581,36 @@ class GarnetGenerator:
 
         first_one_idx = np.where(GVn == 1)[0][0]
         last_zero_idx = np.where(GVn[:first_one_idx] == 0)[0][-1]
+        # ind = np.arange(last_zero_idx, first_one_idx+1)
+
+        # GVG = GVn[ind]
+
         ind = np.arange(last_zero_idx, first_one_idx+1)
+
+        if self.t_start_growth is not None and self.t_end_growth is not None:
+            # If both t_start_growth and t_end_growth are specified, we only consider the data within this time range
+            t_start = self.t_start_growth
+            t_end = self.t_end_growth
+            # Find indices where time is within the specified range
+            time_mask = (self.ti >= t_start) & (self.ti <= t_end)
+            # Apply the mask to the indices
+            ind = ind[time_mask[ind]]
+        elif self.t_start_growth is not None:
+            # If only t_start_growth is specified, we consider data from this time onwards
+            t_start = self.t_start_growth
+            time_mask = self.ti >= t_start
+            ind = ind[time_mask[ind]]
+        elif self.t_end_growth is not None:
+            # If only t_end_growth is specified, we consider data up to this time
+            t_end = self.t_end_growth
+            time_mask = self.ti <= t_end
+            ind = ind[time_mask[ind]]
+        else:
+            # If neither is specified, we use the full range of indices
+            ind = slice(last_zero_idx, first_one_idx+1)
 
         GVG = GVn[ind]
 
-        
 
         tG = self.ti[ind]
         TG = self.Ti[ind]
@@ -560,10 +642,6 @@ class GarnetGenerator:
         Mnrw = np.interp(t_arr, tG, MnG)
         Mgrw = np.interp(t_arr, tG, MgG)
         Ferw = np.interp(t_arr, tG, FeG)
-        
-        # # Set a default for self.r_max if not provided
-        # if self.r_max is None:
-        #     self.r_max = r_r.max()
 
         # --- Create the summary subplots ---
         fig, axs = plt.subplots(3, 2, figsize=(10, 15))
@@ -574,72 +652,86 @@ class GarnetGenerator:
         axs[0, 0].set_xlabel('r')
         axs[0, 0].set_ylabel('f')
         axs[0, 0].set_xlim([r_r.min(), r_r.max()])
-        axs[0, 0].plot(r_r, finp, '-')
+        axs[0, 0].plot(r_r, finp, '-', label='Size Distribution')
         for i in range(n_classes):
             axs[0, 0].plot([r_r[i], r_r[i]], [0, finp[i]], '-')
+        axs[0, 0].legend()
 
         # Subplot 2: Classes' birth place
         axs[0, 1].set_title('Classes birth place')
         axs[0, 1].set_xlabel('T')
         axs[0, 1].set_ylabel('P')
-        axs[0, 1].plot(self.Ti, self.Pi)
-        axs[0, 1].plot(self.Ti, self.Pi, 'kx')
-        axs[0, 1].plot(TGrw, PGrw, 'r.')  # locations where garnet classes formed
+        axs[0, 1].plot(self.Ti, self.Pi, label='Path')
+        axs[0, 1].plot(self.Ti, self.Pi, 'kx', label='Path Points')
+        axs[0, 1].plot(TGrw, PGrw, 'r.', label='Garnet Formation')
+        axs[0, 1].legend()
 
         # Subplot 3: Classes growth
         axs[1, 0].set_title('Classes growth')
         axs[1, 0].set_xlabel('t')
         axs[1, 0].set_ylabel('r')
         for i in range(0, n_classes, 10):
-            axs[1, 0].plot(t_arr[i:], R[i, i:], 'r.-')
-        
+            axs[1, 0].plot(t_arr[i:], R[i, i:], 'r.-', label=f'Class {i}')
+        # axs[1, 0].legend()
+
         # Subplot 4: Volume consumption
         axs[1, 1].set_title('Volume consumption')
         axs[1, 1].set_xlabel('t')
         axs[1, 1].set_ylabel('GV')
         axs[1, 1].set_ylim([0, 1.01])
-        axs[1, 1].plot(tGn, Gn, 'k')
-        axs[1, 1].plot(t_arr, G, 'mx')
+        axs[1, 1].plot(tGn, Gn, 'k', label='Normalized Volume')
+        axs[1, 1].plot(t_arr, G, 'mx', label='Volume Growth')
         axs[1, 1].grid(True)
+        axs[1, 1].legend()
 
         # Subplot 5: Elemental compositions
-        axs[2, 0].set_title('Mn(b) Mg(r) Fe(m) Ca(g)')
+        axs[2, 0].set_title('Garnet Elemental Compositions')
         axs[2, 0].set_xlabel('r')
         axs[2, 0].set_ylabel('c')
         axs[2, 0].set_xlim([0, self.r_max])
         for i in np.arange(0, n_classes, 10):
             ind_local = np.arange(i, n_classes)
             rplt = R[i, :]
-            axs[2, 0].plot(rplt[ind_local], Mnrw[ind_local], '-b',
-                           rplt[ind_local], Mgrw[ind_local], 'r-',
-                           rplt[ind_local], Ferw[ind_local], 'm-',
-                           rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'g-')
+            axs[2, 0].plot(rplt[ind_local], Mnrw[ind_local], '-b', label='Mn')
+            axs[2, 0].plot(rplt[ind_local], Mgrw[ind_local], '-g', label='Mg')
+            axs[2, 0].plot(rplt[ind_local], Ferw[ind_local], '-r', label='Fe')
+            axs[2, 0].plot(rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), '-', c='gold', label='Ca')
+        axs[2, 0].legend()
+
         # Subplot 6: Garnet composition
-        for ax in [axs[2,0], axs[2,1]]:
-            ax.set_title('Mn(b) Mg(r) Fe(m) Ca(g)')
+        for ax in [axs[2, 0], axs[2, 1]]:
+            ax.set_title('Chosen Garnet Composition')
             ax.set_xlabel('r')
             ax.set_ylabel('c')
             ax.set_xlim([0, self.r_max])
-            i = garnet_no ### highlight the defined garnet number
+            i = garnet_no  # highlight the defined garnet number
             ind_local = np.arange(i, n_classes)
             rplt = R[i, :]
-            ax.plot(rplt[ind_local], Mnrw[ind_local], 'bx',
-                        rplt[ind_local], Mgrw[ind_local], 'rx',
-                        rplt[ind_local], Ferw[ind_local], 'mx',
-                        rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'gx', linewidth=2)
-            
-        axs[2,1].plot(rplt[ind_local], Mnrw[ind_local], 'b-',
-            rplt[ind_local], Mgrw[ind_local], 'r-',
-            rplt[ind_local], Ferw[ind_local], 'm-',
-            rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'g-', linewidth=2)
+            ax.plot(rplt[ind_local], Mnrw[ind_local], 'bx', label='Mn')
+            ax.plot(rplt[ind_local], Mgrw[ind_local], 'gx', label='Mg')
+            ax.plot(rplt[ind_local], Ferw[ind_local], 'rx', label='Fe')
+            ax.plot(rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), 'x', c='gold', linewidth=2, label='Ca')
+
+        # Add a single legend for unique labels
+        axs[2, 0].legend(['Mn', 'Mg', 'Fe', 'Ca'], loc='upper right')
+
+        axs[2, 1].plot(rplt[ind_local], Mnrw[ind_local], 'b-', label='Mn')
+        axs[2, 1].plot(rplt[ind_local], Mgrw[ind_local], 'g-', label='Mg')
+        axs[2, 1].plot(rplt[ind_local], Ferw[ind_local], 'r-', label='Fe')
+        axs[2, 1].plot(rplt[ind_local], (1 - Mnrw[ind_local] - Mgrw[ind_local] - Ferw[ind_local]), '-', c='gold', linewidth=2, label='Ca')
+        
+        # Add a single legend for unique labels
+        axs[2, 1].legend(['Mn', 'Mg', 'Fe', 'Ca'], loc='upper right')
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         if path is not None:
             plt.savefig(path)
 
-
-        plt.show()
+        if plot_fig == True:
+            plt.show()
+        else:
+            plt.close()
 
 
 
